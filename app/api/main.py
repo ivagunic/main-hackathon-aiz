@@ -12,7 +12,7 @@ from typing import Annotated
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
@@ -40,6 +40,17 @@ def _checked_case_id(case_id: str) -> str:
 def _meaningful(reason: str) -> bool:
     visible = [ch for ch in reason if not ch.isspace() and unicodedata.category(ch) not in {"Cf", "Cc"}]
     return len(visible) >= 20 and sum(ch.isalpha() for ch in visible) >= 10
+
+
+FRONTEND = pipeline.ROOT / "frontend" / "index.html"
+# The demo page may talk only to this API: no outside scripts, styles, fonts, images or connections.
+PAGE_CSP = ("default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; "
+            "img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+
+
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    return FileResponse(FRONTEND, media_type="text/html", headers={"Content-Security-Policy": PAGE_CSP, "Cache-Control": "no-store"})
 
 
 class Review(BaseModel):

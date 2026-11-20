@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Loan file assistant</title>
+<style>
+  :root { color-scheme: light; --text: #000; --blue: #0b3d91; --line: #c8c8c8; --muted: #444; }
+  * { box-sizing: border-box; }
+  html { font-size: 20px; }
+  body { margin: 0; background: #fff; color: var(--text);
+         font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; line-height: 1.5; }
+  main { max-width: 46rem; margin: 0 auto; padding: 1.5rem 16px 3rem; }
+  h1 { font-size: 1.8rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.3rem; margin: 0 0 .75rem; }
+  section { border-top: 1px solid var(--line); padding: 1.5rem 0; }
+  header { padding-bottom: 1.25rem; }
+  p { margin: 0 0 .75rem; }
+  a { color: var(--blue); }
+  label { display: block; margin-bottom: .35rem; font-weight: 600; }
+  select, input[type=text], textarea {
+    font: inherit; color: inherit; background: #fff; border: 1px solid #767676; border-radius: 0;
+    padding: .45rem .55rem; width: 100%; max-width: 30rem;
+  }
+  textarea { min-height: 5.5rem; max-width: 100%; }
+  button { font: inherit; background: var(--blue); color: #fff; border: 1px solid var(--blue); border-radius: 0;
+           padding: .5rem 1.1rem; cursor: pointer; margin-top: .6rem; }
+  button:disabled { background: #fff; color: var(--muted); border-color: var(--line); cursor: default; }
+  :focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  table { border-collapse: collapse; width: 100%; margin: .5rem 0 1rem; }
+  th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; }
+  .amount { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .status { font-weight: 600; }
+  .details { color: var(--muted); font-size: .9rem; }
+  .radio { display: flex; gap: .5rem; align-items: center; font-weight: 400; margin: .3rem 0; }
+  .radio input { width: 1.1rem; height: 1.1rem; margin: 0; }
+  fieldset { border: 0; padding: 0; margin: 0 0 1rem; }
+  legend { font-weight: 600; padding: 0; margin-bottom: .35rem; }
+  .presenter { border-top: 2px solid #000; }
+  .row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: flex-end; }
+  .row > div { flex: 1 1 18rem; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Loan file assistant</h1>
+    <p>Practice data only. No real people.</p>
+  </header>
+
+  <section aria-labelledby="step1">
+    <h2 id="step1">Step 1: Choose a loan file</h2>
+    <div class="row">
+      <div>
+        <label for="file">Loan file</label>
+        <select id="file">
+          <option value="clean">Clean file</option>
+          <option value="sensitive">File with sensitive payments</option>
+          <option value="variant_a">Variant A</option>
+          <option value="variant_b">Variant B</option>
+        </select>
+      </div>
+    </div>
+    <button id="read" type="button">Read this file</button>
+  </section>
+
+  <section aria-labelledby="step2">
+    <h2 id="step2">Step 2: What the assistant found</h2>
+    <p id="status" class="status" role="status" aria-live="polite">Choose a file to begin.</p>
+    <div id="results" hidden>
+      <table id="figures">
+        <thead><tr><th scope="col">Monthly amount</th><th scope="col" class="amount">Euros</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="note"></p>
+      <p id="caveat"></p>
+      <p id="attack" hidden>Some text in the documents looked like instructions to the assistant. It was ignored.</p>
+      <p id="message" hidden>The customer sent a message. The assistant did not read it.</p>
+      <h3 id="payments-title" style="font-size:1.05rem;margin:1rem 0 .25rem">Payments you can see</h3>
+      <p id="no-payments" hidden>No payments can be shown for this file.</p>
+      <table id="payments">
+        <thead><tr><th scope="col">Date</th><th scope="col">Paid to or from</th><th scope="col">Description</th><th scope="col" class="amount">Amount</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="notlooked">
+    <h2 id="notlooked">What the assistant did not look at</h2>
+    <p>Payments that could reveal health, religion, union membership, politics or a criminal record are left out. The assistant never saw what they were. <a href="#" id="why-link" aria-expanded="false" aria-controls="why">why?</a></p>
+    <p id="why" class="details" hidden>EU privacy law (GDPR Article 9, and Article 10 for criminal matters) does not allow this kind of information to be used for a loan assessment.</p>
+    <p>Your name, address, bank account number and employer are removed before anything is sent. The citizen service number is never read.</p>
+    <p>Age, postcode, nationality, gender and education are not used.</p>
+  </section>
+
+  <section aria-labelledby="where">
+    <h2 id="where">Where each piece of information went</h2>
+    <table id="routes">
+      <thead><tr><th scope="col">Information</th><th scope="col">What happened to it</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <a href="#" id="details-link" aria-expanded="false">show details</a>
+  </section>
+
+  <section aria-labelledby="step3">
+    <h2 id="step3">Step 3: Your decision</h2>
+    <p>The assistant does not decide. You do.</p>
+    <form id="decision" novalidate>
+      <fieldset>
+        <legend>Decision</legend>
+        <label class="radio"><input type="radio" name="action" value="approve"> Approve</label>
+        <label class="radio"><input type="radio" name="action" value="decline"> Decline</label>
+        <label class="radio"><input type="radio" name="action" value="ask_more"> Ask for more information</label>
+      </fieldset>
+      <label for="reason">Your reason</label>
+      <textarea id="reason" required></textarea>
+      <button id="submit" type="submit">Submit</button>
+      <p id="decision-status" class="status" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <section aria-labelledby="askh">
+    <h2 id="askh">Ask the assistant a question</h2>
+    <form id="ask">
+      <label for="question">Your question</label>
+      <input id="question" type="text" autocomplete="off">
+      <button type="submit">Ask</button>
+    </form>
+    <p id="answer" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="presenter" aria-labelledby="presenter">
+    <h2 id="presenter">For the presenter</h2>
+    <label class="radio"><input type="checkbox" id="offline"> Simulate the safety check being offline</label>
+    <p id="offline-status" class="details" role="status" aria-live="polite"></p>
+    <p><a id="download" href="#" aria-disabled="true">Download the full record</a></p>
+  </section>
+</main>
+
+<script>
+"use strict";
+// This page only calls the loan file assistant API on the same address. It never contacts a model directly.
+const $ = (id) => document.getElementById(id);
+let caseId = null;
+const sessionId = (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + String(Math.random()).slice(2);
+
+const MSG = {
+  start: "Choose a file to begin.",
+  reading: "Reading the file...",
+  ready: "The file has been read.",
+  offline: "The safety check is offline, so nothing was sent to the AI. Try again when it is back.",
+  blocked: "The safety check stopped the request, so nothing was sent to the AI.",
+  failed: "A check could not be completed, so nothing was sent to the AI and no amounts are shown.",
+  review: "This file needs a person to check it. Nothing was sent to the AI.",
+  noReason: "Please write a reason before submitting.",
+  shortReason: "Please write a longer reason, at least 20 characters.",
+  noChoice: "Please choose Approve, Decline or Ask for more information.",
+  noFile: "Please read a file first.",
+  recorded: "Your decision has been recorded.",
+  unreachable: "Cannot reach the assistant.",
+};
+
+// Plain words for the placeholders the assistant puts where personal details were removed.
+const PLACEHOLDERS = [
+  [/<PERSON_\d+>/g, "[name removed]"], [/<IBAN(?:_\d+)?>/g, "[bank account removed]"],
+  [/<ADDRESS_\d+>/g, "[address removed]"], [/<EMPLOYER_\d+>/g, "[employer removed]"],
+  [/<REMOVED_NATIONAL_ID>/g, "[citizen number removed]"],
+];
+const plain = (text) => PLACEHOLDERS.reduce((t, [re, word]) => t.replace(re, word), String(text || ""));
+
+function euros(cents) {
+  const sign = cents < 0 ? "- " : "";
+  const abs = Math.abs(Math.trunc(cents));
+  const whole = String(Math.floor(abs / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${sign}€ ${whole},${String(abs % 100).padStart(2, "0")}`;
+}
+
+async function api(method, path, body, form) {
+  const options = { method, headers: {} };
+  if (form) { options.body = new URLSearchParams(form); }
+  else if (body !== undefined) { options.headers["Content-Type"] = "application/json"; options.body = JSON.stringify(body); }
+  let response;
+  try { response = await fetch(path, options); }
+  catch (error) { throw Object.assign(new Error(MSG.unreachable), { unreachable: true }); }
+  let data = null;
+  try { data = await response.json(); } catch (error) { data = null; }
+  return { ok: response.ok, status: response.status, data };
+}
+
+function cell(row, text, cls) {
+  const td = document.createElement("td");
+  td.textContent = text;
+  if (cls) td.className = cls;
+  row.appendChild(td);
+  return td;
+}
+
+function fill(tbodySelector, rows) {
+  const tbody = document.querySelector(tbodySelector);
+  tbody.replaceChildren();
+  for (const values of rows) {
+    const tr = document.createElement("tr");
+    values.forEach(([text, cls]) => cell(tr, text, cls));
+    tbody.appendChild(tr);
+  }
+}
+
+function showFigures(a) {
+  fill("#figures tbody", [
+    [["Net pay"], [euros(a.net_pay_cents), "amount"]],
+    [["Housing"], [euros(a.housing_cents), "amount"]],
+    [["Utilities"], [euros(a.utilities_cents), "amount"]],
+    [["Debt payments"], [euros(a.debt_payment_cents), "amount"]],
+  ]);
+}
+
+function noteText(view) {
+  let text = String(view.explanation || "").split("\nVerified local figures:")[0];
+  text = text.replace(/^(Template note|Local note):\s*/, "");
+  if (text.startsWith("Review the source documents") || text.startsWith("review the source documents")) {
+    text = "The written note could not be checked, so a standard note is shown: review the source documents and compare the amounts above.";
+  }
+  return plain(text);
+}
+
+// Plain-language rows. Rule numbers and legal references come from the record the API returns.
+const ROUTES = [
+  { info: "Net pay, housing, utilities and debt payments", what: "Sent to the AI as a total only", rules: ["P1"] },
+  { info: "Name, address, bank account number and employer", what: "Removed before sending", rules: ["P2"] },
+  { info: "Citizen service number", what: "Not used", rules: ["P3"] },
+  { info: "Payments that could reveal health, religion, union membership or politics", what: "Kept inside the bank", rules: ["P4"] },
+  { info: "Fines and probation payments", what: "Not used", rules: ["P5"] },
+  { info: "Other payslip lines and other statement details", what: "Kept inside the bank", rules: ["P6", "P7"] },
+  { info: "Age, postcode, nationality, gender and education", what: "Not used", rules: ["P8"] },
+  { info: "Instructions hidden inside documents", what: "Not used", rules: ["P11"] },
+  { info: "The loan decision", what: "Made by you, not the assistant", rules: ["P15"] },
+];
+let citations = {};
+let detailsOpen = false;
+
+function showRoutes() {
+  const tbody = document.querySelector("#routes tbody");
+  tbody.replaceChildren();
+  for (const route of ROUTES) {
+    const tr = document.createElement("tr");
+    cell(tr, route.info);
+    const td = cell(tr, route.what);
+    if (detailsOpen) {
+      const p = document.createElement("div");
+      p.className = "details";
+      p.textContent = route.rules.map((id) => citations[id] ? `Rule ${id}: ${citations[id]}` : `Rule ${id}`).join(" · ");
+      td.appendChild(p);
+    }
+    tbody.appendChild(tr);
+  }
+}
+
+function setStatus(text) { $("status").textContent = text; }
+
+async function readFile() {
+  const chosen = $("file").value;
+  $("read").disabled = true;
+  setStatus(MSG.reading);
+  $("results").hidden = true;
+  $("answer").textContent = "";
+  $("decision-status").textContent = "";
+  $("decision").reset();  // a decision always belongs to the file on screen
+  try {
+    const created = await api("POST", "/cases", undefined, { case_id: chosen });
+    if (!created.ok) { setStatus(MSG.failed); return; }
+    const processed = await api("POST", `/cases/${encodeURIComponent(chosen)}/process`);
+    if (!processed.ok) { setStatus(MSG.failed); return; }
+    const opened = await api("GET", `/cases/${encodeURIComponent(chosen)}/view`);  // opening the view enables the decision
+    if (!opened.ok) { setStatus(MSG.failed); return; }
+    caseId = chosen;
+    render(opened.data);
+    const record = await api("GET", `/cases/${encodeURIComponent(chosen)}/ledger`);
+    citations = {};
+    for (const row of (record.ok && record.data && record.data.rows) || []) {
+      if (row.rule_id && row.citation && !citations[row.rule_id]) citations[row.rule_id] = row.citation;
+    }
+    showRoutes();
+    const link = $("download");
+    link.href = `/cases/${encodeURIComponent(chosen)}/ledger?fmt=csv`;
+    link.setAttribute("download", `loan-file-record-${chosen}.csv`);
+    link.removeAttribute("aria-disabled");
+  } catch (error) {
+    setStatus(MSG.unreachable);
+  } finally {
+    $("read").disabled = false;
+  }
+}
+
+function render(view) {
+  const flags = view.flags || [];
+  const failed = flags.includes("fail_closed");
+  $("results").hidden = false;
+  $("figures").hidden = failed;
+  if (!failed) showFigures(view.affordability);
+  $("caveat").textContent = view.caveat || "";
+  $("attack").hidden = !flags.includes("attack_detected");
+  $("message").hidden = !view.customer_message_status;
+  if (flags.includes("brane_unavailable")) { setStatus(MSG.offline); $("note").textContent = ""; }
+  else if (flags.includes("brane_blocked")) { setStatus(MSG.blocked); $("note").textContent = ""; }
+  else if (failed) { setStatus(MSG.failed); $("note").textContent = ""; }
+  else if (view.human_review_required) { setStatus(MSG.review); $("note").textContent = noteText(view); }
+  else { setStatus(MSG.ready); $("note").textContent = noteText(view); }
+
+  const payments = view.visible_transactions || [];
+  $("payments").hidden = payments.length === 0;
+  $("no-payments").hidden = payments.length !== 0;
+  fill("#payments tbody", payments.map((tx) => [
+    [String(tx.date).split("-").reverse().join("-")], [plain(tx.counterparty)], [plain(tx.description)], [euros(tx.amount_cents), "amount"],
+  ]));
+}
+
+async function submitDecision(event) {
+  event.preventDefault();
+  const status = $("decision-status");
+  const choice = document.querySelector("input[name=action]:checked");
+  const reason = $("reason").value;
+  if (!caseId) { status.textContent = MSG.noFile; return; }
+  if (!choice) { status.textContent = MSG.noChoice; return; }
+  if (!reason.trim()) { status.textContent = MSG.noReason; $("reason").focus(); return; }
+  try {
+    const result = await api("POST", `/cases/${encodeURIComponent(caseId)}/review`, { officer_id: "presenter", action: choice.value, reason });
+    if (result.ok) status.textContent = MSG.recorded;
+    else if (result.status === 422) status.textContent = MSG.shortReason;
+    else if (result.status === 409) status.textContent = "Please read the file again before submitting.";
+    else status.textContent = MSG.unreachable;
+  } catch (error) { status.textContent = MSG.unreachable; }
+}
+
+async function askQuestion(event) {
+  event.preventDefault();
+  const question = $("question").value.trim();
+  const out = $("answer");
+  if (!question) return;
+  if (!caseId) { out.textContent = MSG.noFile; return; }
+  try {
+    const result = await api("POST", `/cases/${encodeURIComponent(caseId)}/ask`, { session_id: sessionId, question });
+    if (!result.ok || !result.data) { out.textContent = result.status === 409 ? "Please read the file again first." : MSG.unreachable; return; }
+    const text = String(result.data.text || "").replace(/(\d+) cents/g, (_, c) => euros(Number(c)));
+    out.textContent = result.data.refused ? `The assistant will not answer this question. ${text}` : text;
+  } catch (error) { out.textContent = MSG.unreachable; }
+}
+
+async function toggleOffline() {
+  const offline = $("offline").checked;
+  const status = $("offline-status");
+  try {
+    const result = await api("POST", `/admin/brane/${offline ? "down" : "up"}`);
+    if (!result.ok) throw new Error("switch failed");
+    status.textContent = offline ? "The safety check is now offline. Read the file again to see what happens."
+                                 : "The safety check is back online. Read the file again.";
+  } catch (error) {
+    $("offline").checked = !offline;
+    status.textContent = MSG.unreachable;
+  }
+}
+
+$("read").addEventListener("click", readFile);
+$("decision").addEventListener("submit", submitDecision);
+$("ask").addEventListener("submit", askQuestion);
+$("offline").addEventListener("change", toggleOffline);
+$("download").addEventListener("click", (event) => { if (!caseId) event.preventDefault(); });
+$("why-link").addEventListener("click", (event) => {
+  event.preventDefault();
+  const open = $("why").hidden;
+  $("why").hidden = !open;
+  event.target.setAttribute("aria-expanded", String(open));
+});
+$("details-link").addEventListener("click", (event) => {
+  event.preventDefault();
+  detailsOpen = !detailsOpen;
+  event.target.textContent = detailsOpen ? "hide details" : "show details";
+  event.target.setAttribute("aria-expanded", String(detailsOpen));
+  showRoutes();
+});
+showRoutes();
+// The checkbox starts unticked, so make the simulated switch match it after a page reload.
+api("POST", "/admin/brane/up").catch(() => { $("status").textContent = MSG.unreachable; });
+</script>
+</body>
+</html>
