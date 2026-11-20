@@ -12,6 +12,7 @@ TESTS = [
     ("R2", "clean.json with age-only and postcode-only changes (A01 line fixture pending)", "Four figures, flags and route stay identical", "block", "P8"),
     ("R3", "clean.json plus CJIB statement line (A02 line fixture pending)", "CJIB line does not affect any total", "block", "P5"),
     ("R4", "tampered model draft", "Changed figures or lending language show template note", "block", "P13"),
+    ("BRANE smoke", "harmless four-field live request and closed localhost port", "Positive verdict, request metadata printed, then BraneUnavailable at closed port", "allow/block", "P1/P12"),
     ("BRANE enforcement check", "harmless synthetic P1 schema violation (live only)", "Configured BRANE policy denies request and denial is recorded", "block", "P1"),
 ]
 
@@ -36,12 +37,12 @@ def main() -> None:
             ledger = "; ".join(f"{key}: `{hashes[key]}`" for key in ("variant_a", "variant_b") if key in hashes)
         if not ledger:
             ledger = "pending evidence"
-        if name == "BRANE enforcement check":
+        if name in {"BRANE smoke", "BRANE enforcement check"}:
             result = "live evidence pending"
-        elif name in {"P10", "R1", "R2", "R3", "R4"}:
-            result = "local regression passed; live BRANE evidence pending"
+        elif name in {"T1", "T2", "T3"}:
+            result = "local legacy-fixture pass; A01–A03 profile fixtures and live BRANE evidence pending"
         else:
-            result = "local run pending"
+            result = "local regression passed; live BRANE evidence pending"
         lines.append(f"| {name} | {input_name} | {expected} | {decision} | {rule} | {ledger} | {result} |")
     Path("docs/test-protocol.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 

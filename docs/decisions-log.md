@@ -1,19 +1,30 @@
 # Gateway decisions
 
-The repository arrived without AI-Z connection details or credentials. The gateway therefore implements the assumed OpenAI-compatible BRANE chat-completions shape behind `BraneClient`; requests are disabled until `BRANE_BASE_URL` and `BRANE_MODEL` are configured. Authentication uses `BRANE_API_KEY` when supplied.
+## Confirmed integration details
 
-`BRANE_MODE=fake` is the default for local development. The live API is not verified against AI-Z's service. BRANE policy configuration and its decision-log schema remain external setup items; the adapter captures a response body `brane_verdict` field or `x-brane-verdict` header and records `unreported` otherwise.
-
-The local processing adapter remains a deterministic fake. AI-Z's approved local route and model name were not supplied. The runtime uses aggregate-only cloud prompts, which contain no case document text.
-
-## AI-Z questions still awaiting answers
-
-| Question from the integration plan | Status |
+| Item | Decision |
 |---|---|
-| Exact BRANE base URL, auth method, and chat API compatibility | Not supplied |
-| Where and how BRANE policy rules are configured | Not supplied; local policy references are proposed IDs only |
-| BRANE local model route and model name | Not supplied; adapter assumes `/v1/local/chat/completions` |
-| BRANE decision log and protected-input response fields | Not supplied; adapter captures known response fields and safe metadata |
-| Jury execution method and live evidence format | Not supplied; local protocol remains pending live results |
+| Base URL | `https://brane.ai-z.io/api/v1` |
+| Authentication | `Authorization: Bearer <BRANE_API_KEY>`; load only from environment or local `.env` |
+| Model listing and health check | `GET /models` relative to the base URL |
+| Cloud completion | `POST /chat/completions` relative to the base URL; model from `BRANE_MODEL` |
+| Local model | Model from `BRANE_LOCAL_MODEL`; local path currently defaults to `/local/chat/completions` pending AI-Z confirmation |
+| Policy setup | README does not describe the policy configuration interface, schema, or `brane_policy_ref` mapping; ask AI-Z |
+| Decision capture | Retain response status, decision-related headers, policy/verdict fields and full raw response in `Decision.brane_verdict` |
 
-No live BRANE call or BRANE policy setup was possible from the provided workspace.
+The gateway does not retry against another host. A BRANE block raises `BraneBlocked`; connection failures, timeouts and 5xx responses raise `BraneUnavailable`.
+
+## Perimeter assumption
+
+20 Nov 2026 — AI-Z mentor: “BRANE is treated as inside the bank's trusted perimeter; the external model behind it is the outside recipient.”
+
+## Remaining unknowns
+
+| Question | Status |
+|---|---|
+| Exact BRANE local completion path | Assumed `/local/chat/completions`; ask AI-Z to confirm |
+| Policy configuration interface/schema and mapping for P1–P15 | Not covered by README; ask AI-Z |
+| Exact verdict/policy response fields and protected-text format | Not covered by README; adapter retains full raw response and decision headers |
+| Live evidence and enforcement-test protocol | Not covered by README; requires credentials and service access |
+
+The earlier gateway README documented assumed `/v1/chat/completions`, `/v1/local/chat/completions` and `/health` routes. Those differ from the now-confirmed base-relative cloud route and `GET /models` health check; the local route remains unconfirmed. No actual starter-folder README path was supplied or found; the gateway README was the available BRANE-specific README and is now updated.

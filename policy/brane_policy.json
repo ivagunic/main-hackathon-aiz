@@ -1,0 +1,138 @@
+{
+  "team": "Team 17",
+  "departmentId": "8b4a896e-8cda-4ee0-83aa-1fe27290ff81",
+  "routingMode": "cloud-preferred",
+  "piiSensitivity": "high",
+  "categories": {
+    "PERSON": "placeholder",
+    "EMAIL": "placeholder",
+    "PHONE": "placeholder",
+    "ADDRESS": "placeholder",
+    "IP_ADDRESS": "placeholder",
+    "ORG": "placeholder",
+    "TRADE_REGISTER": "placeholder",
+    "VAT_ID": "placeholder",
+    "DATE_OF_BIRTH": "refuse",
+    "SSN": "refuse",
+    "PASSPORT": "refuse",
+    "TAX_NUMBER": "refuse",
+    "INSURANCE_NUMBER": "refuse",
+    "IBAN": "placeholder",
+    "CREDIT_CARD": "refuse",
+    "ACCOUNT_NUMBER": "placeholder",
+    "PASSWORD": "refuse",
+    "SECRET_KEY": "refuse",
+    "HEALTH_DATA": "local",
+    "ETHNIC_ORIGIN": "local",
+    "POLITICAL_OPINION": "local",
+    "RELIGIOUS_BELIEF": "local",
+    "SEXUAL_ORIENTATION": "local",
+    "TRADE_UNION": "local",
+    "SENSITIVE_CONTEXT": "local"
+  },
+  "semanticCategories": [
+    {
+      "id": "5e5f96ce-c244-4830-a02f-4dc3e199fd2d",
+      "code": "AUTONOMOUS_CREDIT_DECISION",
+      "name": "Autonomous credit decision, score or recommendation",
+      "description": "Requests asking the AI to approve, reject, decline, score, rate, rank or recommend a decision on a loan or credit applicant, or to state whether a person is creditworthy or eligible. Example: \"Should we approve this loan?\", \"Give this applicant a risk score\", \"Would you recommend rejecting?\". Requests to summarise figures or draft a neutral note for a human credit officer are NOT a match.",
+      "keywords": [
+        "approve this loan",
+        "reject this applicant",
+        "decline this application",
+        "risk score",
+        "credit score",
+        "creditworthy",
+        "should we approve",
+        "would you recommend",
+        "lening goedkeuren",
+        "aanvraag afwijzen"
+      ],
+      "legalBasis": "GDPR Art. 22(1); CJEU C-634/21 SCHUFA; CCD II Art. 18(8); EU AI Act Art. 14",
+      "action": "refuse",
+      "enabled": true
+    },
+    {
+      "id": "9af83169-17a3-4407-94e6-3627a1a561ec",
+      "code": "SENSITIVE_MERCHANT",
+      "name": "Payments that reveal health, religion, union or political affiliation",
+      "description": "A bank transaction or payment line whose recipient or description indirectly reveals a person's health, religious belief, trade union membership, political opinion or sex life. Examples: payments to a pharmacy, hospital, GP, therapist or mental health service; donations or contributions to a church, mosque or other religious body; trade union fees; donations or membership fees to a political party; dating service subscriptions. A business that only has such a word in a street or brand name (for example \"Church Street Café\") is NOT a match.",
+      "keywords": [
+        "apotheek",
+        "apotheke",
+        "pharmacie",
+        "pharmacy",
+        "huisarts",
+        "ziekenhuis",
+        "GGZ",
+        "fysiotherapie",
+        "eigen risico",
+        "kerkbijdrage",
+        "moskee",
+        "Kirchensteuer",
+        "vakbond",
+        "FNV",
+        "CNV",
+        "Gewerkschaft",
+        "syndicat",
+        "partijlidmaatschap",
+        "dating"
+      ],
+      "legalBasis": "GDPR Art. 9(1); CJEU C-184/20 paras 120, 127; CCD II Art. 18(3)",
+      "action": "local",
+      "enabled": true
+    },
+    {
+      "id": "14c0dc20-dea8-4bee-a9d5-df6b74a42f78",
+      "code": "CRIMINAL_PAYMENT",
+      "name": "Payments relating to fines, offences or probation",
+      "description": "A bank transaction or payment line to a body that collects criminal or traffic fines or supervises offenders, which may reveal data relating to criminal convictions or offences. Examples: payments to CJIB (Centraal Justitieel Incassobureau), reclassering (probation service), court-ordered fines or penalty instalments.",
+      "keywords": [
+        "CJIB",
+        "Centraal Justitieel Incassobureau",
+        "reclassering",
+        "strafbeschikking",
+        "justitiële boete"
+      ],
+      "legalBasis": "GDPR Art. 10; GDPR Art. 5(1)(c); CJEU C-439/19 paras 85, 87, 93",
+      "action": "refuse",
+      "enabled": true
+    },
+    {
+      "id": "e72c0854-b9c2-4718-83a2-9135319dfb6d",
+      "code": "PROXY_ATTRIBUTE",
+      "name": "Use of discriminatory proxies in assessing an applicant",
+      "description": "Requests asking the AI to use, weigh or compare a loan applicant's postcode or neighbourhood, nationality, ethnic or name origin, gender, age or education level as a factor in assessing, ranking or prioritising them. Example: \"Factor in that the applicant lives in a poor neighbourhood\", \"Rank applicants by nationality\". The mere presence of an address or postcode in a document, without a request to use it as an assessment factor, is NOT a match.",
+      "keywords": [
+        "rank by nationality",
+        "based on their postcode",
+        "based on nationality",
+        "because of their age",
+        "by gender",
+        "risk by neighbourhood",
+        "op basis van nationaliteit",
+        "op basis van postcode"
+      ],
+      "legalBasis": "CCD II Art. 6; EU Charter Art. 21; Awgb Arts. 1(1), 7(1)(a)",
+      "action": "refuse",
+      "enabled": true
+    }
+  ],
+  "summary": {
+    "allow": 0,
+    "placeholder": 10,
+    "local": 7,
+    "refuse": 8,
+    "activeSemanticCategories": 4,
+    "isOpenBaseline": false
+  },
+  "updatedAt": "2026-11-20T23:20:15.692Z",
+  "availableActions": [
+    "allow",
+    "placeholder",
+    "local",
+    "refuse"
+  ],
+  "catalogEndpoint": "/api/v1/policy/catalog",
+  "testEndpoint": "/api/v1/policy/test"
+}

@@ -1,4 +1,6 @@
 {
+  "suite": "attacks+legit",
+  "source_file": "attacks.yaml + legit.yaml",
   "policy_version": "v1",
   "passed": true,
   "results": [

@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -68,14 +69,67 @@ def _figures(affordability: Affordability) -> dict[str, int]:
     return {field: getattr(affordability, field) for field in OUTBOUND_FIELDS}
 
 
+_ROUTED_OK = {"cloud", "local"}
+_ACTION_OK = {"allow", "placeholder", "local"}
+
+
+@dataclass(frozen=True)
+class BraneDecision:
+    """What the stored X-Brane headers say happened to a request."""
+
+    status: int | None = None
+    routed_to: str = ""
+    action: str = ""
+    reason: str = ""
+
+    @property
+    def positive(self) -> bool:
+        # Positive only when HTTP 200 AND routed to cloud/local AND an allowing action.
+        return self.status == 200 and self.routed_to in _ROUTED_OK and self.action in _ACTION_OK
+
+    @property
+    def refused(self) -> bool:
+        return self.status == 422 or self.routed_to == "refused"
+
+
+def _header(headers: dict, name: str) -> str:
+    return next((str(v).strip() for k, v in headers.items() if str(k).casefold() == name), "")
+
+
+def _brane_decision(verdict: str | None) -> BraneDecision:
+    """Read the gateway's decision record. Anything missing or unreadable yields a non-positive decision."""
+    if os.getenv("BRANE_MODE", "fake") == "fake" and verdict == "allow":
+        # FakeBrane test double (no network, no headers). Its stored verdict stays the plain "allow",
+        # so the record never claims a real routing; live mode never takes this branch.
+        return BraneDecision(200, "cloud", "allow")
+    try:
+        record = json.loads(verdict or "")
+    except (TypeError, ValueError):
+        return BraneDecision()
+    if not isinstance(record, dict) or not isinstance(record.get("headers"), dict):
+        return BraneDecision()
+    status = record.get("status_code")
+    headers = record["headers"]
+    reason = _header(headers, "x-brane-refused-by") or _header(headers, "x-brane-policy-triggers")
+    reason = mask_identifiers(" ".join(reason.split()))[:200]
+    return BraneDecision(status if type(status) is int else None, _header(headers, "x-brane-routed-to").casefold(),
+        _header(headers, "x-brane-action").casefold(), reason)
+
+
 def _positive_brane_verdict(verdict: str) -> bool:
+    return _brane_decision(verdict).positive
+
+
+def _ledger_verdict(verdict: str) -> str:
+    """Keep the decision (status, X-Brane headers, verdict fields) but never the model's raw response text (matrix D)."""
     try:
         value = json.loads(verdict)
-        if isinstance(value, dict):
-            value = value.get("verdict")
     except (TypeError, ValueError):
-        value = verdict
-    return isinstance(value, str) and value.casefold() in {"allow", "allowed", "protect", "protected"}
+        return verdict
+    if isinstance(value, dict) and "raw_response" in value:
+        value = {k: v for k, v in value.items() if k != "raw_response"}
+        return json.dumps(value, sort_keys=True, default=str)
+    return verdict
 
 
 def _checked_draft(text: str, affordability: Affordability) -> str:
@@ -168,10 +222,17 @@ def process(case_id: str, path: str | Path | None = None) -> OfficerView:
         # Defense in depth: payload schema and source-derived leak checks run before gateway.
         validate_cloud_payload(json.loads(user))
         outbound_guard(user, loan)
-        result = get_cloud().complete(
-            "Write a short factual note from the supplied four integer fields. Do not add figures or make a lending inference.",
-            user, case_id=case_id, purpose="aggregate_explanation")
-        if not _positive_brane_verdict(result.verdict):
+        system = (
+            "Draft a neutral two-sentence note for a credit officer from these figures: "
+            f"net pay {user_data['net_pay_cents']} cents, housing {user_data['housing_cents']} cents, "
+            f"utilities {user_data['utilities_cents']} cents, debt payments {user_data['debt_payment_cents']} cents. "
+            "Do not add any assessment."
+        )
+        result = get_cloud().complete(system, user, case_id=case_id, purpose="aggregate_explanation")
+        decision = _brane_decision(result.verdict)
+        if decision.refused:
+            raise BraneBlocked("BRANE refused the request", decision.status, result.verdict)
+        if not decision.positive:
             raise BraneUnavailable("BRANE did not return an explicit positive verdict")
         draft = restore(result.text, pseudo_map)
         try:
@@ -179,13 +240,20 @@ def process(case_id: str, path: str | Path | None = None) -> OfficerView:
         except LeakDetected:
             draft = "Template note: review the source documents and reconcile the listed figures."
         explanation = _checked_draft(draft, affordability)
-        EVENTS[case_id].append({"type": "brane_call", "verdict": result.verdict, "payload_sha256": result.payload_sha256, "ts": datetime.now(UTC).isoformat()})
-        record(case_id, aggregate, policy["version"], LEDGER, verdict=result.verdict, payload_hash=result.payload_sha256)
+        stored_verdict = _ledger_verdict(result.verdict)
+        EVENTS[case_id].append({"type": "brane_call", "verdict": stored_verdict, "payload_sha256": result.payload_sha256, "ts": datetime.now(UTC).isoformat()})
+        record(case_id, aggregate, policy["version"], LEDGER, verdict=stored_verdict, payload_hash=result.payload_sha256)
     except BraneBlocked as exc:
         blocked = Element(id=hashlib.sha1(f"{case_id}:brane-blocked".encode()).hexdigest()[:12], source_ref="brane:decision", kind="control", text="", category="financial_fact", detector="brane", lane="refuse", rule_id="P12", citation="GDPR Arts. 25(1), 32(1); challenge brief (check-failure test)", brane_policy_ref="BRANE-P12-FAIL-CLOSED")
-        record(case_id, blocked, policy["version"], LEDGER, verdict=exc.decision or f"block: HTTP {exc.status_code}")
+        record(case_id, blocked, policy["version"], LEDGER, verdict=_ledger_verdict(exc.decision) if exc.decision else f"block: HTTP {exc.status_code}")
         EVENTS[case_id].append({"type": "fail_closed", "case_id": case_id, "ts": datetime.now(UTC).isoformat()})
-        view = OfficerView(case_id=case_id, affordability=affordability, explanation="external drafting unavailable", flags=["brane_blocked"])
+        refusal = _brane_decision(exc.decision)
+        note = ""
+        if exc.status_code == 422 or refusal.refused:
+            # A BRANE refusal: no model note, only the stated reason from X-Brane-Refused-By / X-Brane-Policy-Triggers.
+            note = f"BRANE refused the request: {refusal.reason or 'no reason given'}"
+        view = OfficerView(case_id=case_id, affordability=affordability, explanation="external drafting unavailable",
+            flags=["brane_blocked"], local_note=note)
         VIEWS[case_id] = view
         return view
     except BraneUnavailable:

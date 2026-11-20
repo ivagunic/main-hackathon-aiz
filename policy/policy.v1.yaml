@@ -3,95 +3,95 @@ default:
   lane: refuse
   rule_id: P12
   citation: "GDPR Arts. 25(1), 32(1); challenge brief (check-failure test)"
-  brane_policy_ref: BRANE-P12-DEFAULT-REFUSE
+  brane_policy_ref: agent-only
 rules:
   - id: P1
     match: {categories: [financial_fact, neutral]}
     action: calculate
     lane: cloud_aggregate
     citation: "GDPR Arts. 5(1)(c), 25(1)–(2); CCD II Art. 18(3) (Tomas item 1; Nur item 3)"
-    brane_policy_ref: BRANE-P1-FOUR-FIELD-ALLOWLIST
+    brane_policy_ref: agent-only
   - id: P2
     match: {category: identifier}
     action: calculate
     lane: excluded
     citation: "GDPR Arts. 4(5), 5(1)(c), 25(1), 32(1); C‑413/23 P (Nur item 3)"
-    brane_policy_ref: BRANE-P2-IDENTIFIER-OMISSION
+    brane_policy_ref: PERSON,ADDRESS,ORG,IBAN,ACCOUNT_NUMBER,TRADE_REGISTER,VAT_ID
   - id: P3
     match: {category: national_id}
     action: calculate
     lane: excluded
     citation: "GDPR Art. 87; UAVG Art. 46(1)"
-    brane_policy_ref: BRANE-P3-BSN-BLOCK
+    brane_policy_ref: SSN,TAX_NUMBER
   - id: P4
     match: {category: special_category}
     action: calculate
     lane: local_only
     citation: "GDPR Art. 9(1); C‑184/20 paras 120, 127; C‑21/23 paras 84, 90 (distinguished); CCD II Art. 18(3) (Nur item 1)"
-    brane_policy_ref: BRANE-P4-SENSITIVE-LINES
+    brane_policy_ref: POLITICAL_OPINION,RELIGIOUS_BELIEF,HEALTH_DATA,SEXUAL_ORIENTATION,TRADE_UNION,SENSITIVE_CONTEXT
   - id: P5
     match: {category: criminal}
     action: calculate
     lane: excluded
     citation: "GDPR Art. 5(1)(c); Art. 10 where the data relate to criminal offences; C‑439/19 paras 85, 87, 93"
-    brane_policy_ref: BRANE-P5-CRIMINAL-LINES
+    brane_policy_ref: CRIMINAL_PAYMENT_CONTEXT
   - id: P6
     match: {category: neutral, action: payslip_extract}
     action: payslip_extract
     lane: local_only
     citation: "GDPR Arts. 5(1)(c), 9(1)"
-    brane_policy_ref: BRANE-P6-NET-PAY-ONLY
+    brane_policy_ref: PAYSLIP_NON_NET_LINES
   - id: P7
     match: {category: neutral, action: statement_detail}
     action: statement_detail
     lane: local_only
     citation: "GDPR Art. 5(1)(c); CCD II Art. 18(3)"
-    brane_policy_ref: BRANE-P7-OTHER-STATEMENT-DATA
+    brane_policy_ref: agent-only
   - id: P8
     match: {category: proxy}
     action: calculate
     lane: excluded
     citation: "CCD II Art. 6; Charter Arts. 21, 51(1); Awgb Arts. 1(1), 2(1), 7(1)(a) (Tomas item 3)"
-    brane_policy_ref: BRANE-P8-PROXY-EXCLUSION
+    brane_policy_ref: DATE_OF_BIRTH,ADDRESS,PERSON,PROXY_ATTRIBUTES
   - id: P9
     match: {category: social_network}
     action: calculate
     lane: excluded
     citation: "CCD II Art. 18(3)"
-    brane_policy_ref: BRANE-P9-NO-SOCIAL-NETWORK-DATA
+    brane_policy_ref: agent-only
   - id: P10
     match: {category: hardship_signal}
     action: calculate
     lane: excluded
     citation: "GDPR Arts. 5(1)(c), 9(1); legal-basis paragraph under the classification table"
-    brane_policy_ref: BRANE-P10-HARDSHIP-OUT-OF-SCOPE
+    brane_policy_ref: agent-only
   - id: P11
     match: {category: instruction_attack}
     action: calculate
     lane: refuse
     citation: "AI Act Art. 15(5) (design target before 2 Dec 2027); GDPR Art. 32(1)"
-    brane_policy_ref: BRANE-P11-UNTRUSTED-DOCUMENT-INSTRUCTIONS
+    brane_policy_ref: PROMPT_INJECTION
   - id: P12
     match: {category: unavailable_check}
     action: calculate
     lane: refuse
     citation: "GDPR Arts. 25(1), 32(1); challenge brief (check-failure test)"
-    brane_policy_ref: BRANE-P12-FAIL-CLOSED
+    brane_policy_ref: agent-only
   - id: P13
     match: {category: model_output}
     action: display
     lane: refuse
     citation: "GDPR Arts. 5(1)(d), 22(1); C‑634/21 paras 48–50"
-    brane_policy_ref: BRANE-P13-DRAFT-VALIDATION
+    brane_policy_ref: agent-only
   - id: P14
     match: {category: evidence_gap}
     action: calculate
     lane: human_review
     citation: "AI Act Art. 6(3), Annex III point 5(b); GDPR Art. 22 (Tomas item 2)"
-    brane_policy_ref: BRANE-P14-EVIDENCE-GAP
+    brane_policy_ref: agent-only
   - id: P15
     match: {category: lending_decision}
     action: review
     lane: human_review
     citation: "GDPR Art. 22(1); C‑634/21 paras 48–50; CCD II Art. 18(8)"
-    brane_policy_ref: BRANE-P15-HUMAN-DECISION
+    brane_policy_ref: AUTONOMOUS_LENDING_DECISION

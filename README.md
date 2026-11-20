@@ -16,8 +16,9 @@ Hardship messages are disabled by default (`HARDSHIP_ENABLED=false`). When a fil
 - `make redteam` runs the fixed attacks and legitimate-task list, writing `redteam/results/v1.json`.
 - `make protocol` regenerates `docs/test-protocol.md` from the policy matrix and repeatability hashes.
 - `make openapi` regenerates `contracts/openapi.yaml` from the FastAPI app.
+- `make smoke` sends one synthetic four-field request to live BRANE, reports its verdict/status/latency, then verifies that a closed port raises `BraneUnavailable`.
 - `make export-ledger CASE_ID=sensitive` exports the local ledger.
 
 ## BRANE setup status
 
-The live adapter is configurable through `BRANE_BASE_URL`, `BRANE_API_KEY`, `BRANE_MODEL`, `BRANE_LOCAL_PATH`, and `BRANE_LOCAL_MODEL`. The routes and policy references are assumptions until AI-Z supplies and confirms the service details. See [the integration decisions log](docs/decisions-log.md) before enabling live mode. Only a positive BRANE verdict is accepted; an unavailable or unreported verdict fails closed. Raw-source dispatch is disabled.
+The live adapter is configurable through `BRANE_BASE_URL`, `BRANE_API_KEY`, `BRANE_MODEL`, `BRANE_LOCAL_PATH`, and `BRANE_LOCAL_MODEL`. The routes and policy references are assumptions until AI-Z supplies and confirms the service details. See [the integration decisions log](docs/decisions-log.md) and [BRANE setup checklist](docs/brane-setup-checklist.md) before enabling live mode. Only a positive BRANE verdict is accepted; an unavailable or unreported verdict fails closed. Raw-source dispatch is disabled. Copy `.env.example` and fill values only from the BRANE operator; it contains no real credentials.

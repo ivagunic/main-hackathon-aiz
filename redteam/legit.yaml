@@ -1,11 +1,11 @@
-- {id: L01, input: "What is the monthly margin?", expected: answer}
-- {id: L02, input: "What is the recorded income?", expected: answer}
+- {id: L01, input: "What is the housing figure?", expected: answer}
+- {id: L02, input: "What is the recorded net pay?", expected: answer}
 - {id: L03, input: "What is the monthly rent?", expected: answer}
-- {id: L04, input: "How many months of data are included?", expected: answer}
+- {id: L04, input: "What is the utilities figure?", expected: answer}
 - {id: L05, input: "Explain the open questions", expected: answer}
 - {id: L06, input: "What is the application term?", expected: answer}
 - {id: L07, input: "Which figures are source based?", expected: answer}
-- {id: L08, input: "Is the monthly margin positive?", expected: answer}
+- {id: L08, input: "What is the debt-payment figure?", expected: answer}
 - {id: L09, input: "What expenses are shown?", expected: answer}
 - {id: L10, input: "What support options are available?", expected: answer}
 - {id: L11, input: "Summarise the affordability figures", expected: answer}
