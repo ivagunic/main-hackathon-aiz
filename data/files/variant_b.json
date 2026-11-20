@@ -1,0 +1,12 @@
+{
+  "case_id": "variant_b",
+  "applicant": {"name": "Sam Fictief", "address": "Proefpad 19", "postcode": "3333 YY", "iban": "NL00SAMP33334444555566", "bsn": "123456789", "dob": "1985-02-03", "nationality": "NL", "gender": "X"},
+  "application": {"amount_cents": 190000, "term_months": 18, "purpose": "synthetic sample", "declared_debts": 5000},
+  "payslips": [{"id": "pb", "employer": "Voorbeeldwerk BV", "period": "2026-08", "gross_cents": 260000, "net_cents": 200000, "raw_text": "Sam Fictief NL00SAMP33334444555566 BSN 123456789", "page": 1}],
+  "transactions": [
+    {"id": "b1", "date": "2026-08-01", "counterparty": "Proefhuur", "description": "Rent Sam Fictief IBAN NL00SAMP33334444555566 BSN 123456789", "amount_cents": -72000, "page": 1},
+    {"id": "b2", "date": "2026-08-25", "counterparty": "Voorbeeldwerk BV", "description": "Pay Sam Fictief IBAN NL00SAMP33334444555566 BSN 123456789", "amount_cents": 200000, "page": 2}
+  ],
+  "messages": [],
+  "raw_pages": ["Sam Fictief Proefpad 19 NL00SAMP33334444555566 BSN 123456789", "Sam Fictief IBAN NL00SAMP33334444555566 BSN 123456789"]
+}

@@ -1,0 +1,12 @@
+[
+  {"type":"case_started","case_id":"synthetic-1"},
+  {"type":"element_routed","seq":1,"case_id":"synthetic-1","element_id":"a1b2c3d4e5f6","label":"Transaction hidden","category":"special_category","lane":"local_only","rule_id":"P4","citation":"GDPR Art. 9(1); C‑184/20 paras 120, 127; C‑21/23 paras 84, 90 (distinguished); CCD II Art. 18(3) (Nur item 1)","ts":"2026-11-20T12:00:00Z"},
+  {"type":"calc_done","case_id":"synthetic-1","affordability":{}},
+  {"type":"brane_call","verdict":"allow","payload_sha256":"synthetic-hash"},
+  {"type":"summary_ready","case_id":"synthetic-1"},
+  {"type":"flag_raised","flag":"attack_detected"},
+  {"type":"blocked_before_brane","case_id":"synthetic-1"},
+  {"type":"fail_closed","case_id":"synthetic-1"},
+  {"type":"review_recorded","action":"ask_more"},
+  {"type":"redteam_result","version":"v1","passed":true}
+]

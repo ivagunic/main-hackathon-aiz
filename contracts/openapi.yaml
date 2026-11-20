@@ -1,0 +1,450 @@
+openapi: 3.1.0
+info:
+  title: AI-Z Loan File Assistant
+  version: 0.1.0
+paths:
+  /cases:
+    post:
+      summary: Create Case
+      operationId: create_case_cases_post
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_create_case_cases_post'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /cases/{case_id}/process:
+    post:
+      summary: Run Case
+      operationId: run_case_cases__case_id__process_post
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfficerView'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /cases/{case_id}/view:
+    get:
+      summary: Get View
+      operationId: get_view_cases__case_id__view_get
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfficerView'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /cases/{case_id}/events:
+    get:
+      summary: Events
+      operationId: events_cases__case_id__events_get
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /cases/{case_id}/ledger:
+    get:
+      summary: Ledger
+      operationId: ledger_cases__case_id__ledger_get
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      - name: fmt
+        in: query
+        required: false
+        schema:
+          type: string
+          default: json
+          title: Fmt
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /cases/{case_id}/review:
+    post:
+      summary: Review
+      operationId: review_cases__case_id__review_post
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Review'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /cases/{case_id}/ask:
+    post:
+      summary: Ask
+      operationId: ask_cases__case_id__ask_post
+      parameters:
+      - name: case_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Case Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Question'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /admin/policy/{version}:
+    post:
+      summary: Activate Policy
+      operationId: activate_policy_admin_policy__version__post
+      parameters:
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Version
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /admin/brane/{state}:
+    post:
+      summary: Demo Brane Switch
+      operationId: demo_brane_switch_admin_brane__state__post
+      parameters:
+      - name: state
+        in: path
+        required: true
+        schema:
+          type: string
+          title: State
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    Affordability:
+      properties:
+        net_pay_cents:
+          type: integer
+          title: Net Pay Cents
+        housing_cents:
+          type: integer
+          title: Housing Cents
+        utilities_cents:
+          type: integer
+          title: Utilities Cents
+        debt_payment_cents:
+          type: integer
+          title: Debt Payment Cents
+        open_questions:
+          items:
+            type: string
+          type: array
+          title: Open Questions
+        source_refs:
+          additionalProperties:
+            items:
+              type: string
+            type: array
+          type: object
+          title: Source Refs
+      additionalProperties: false
+      type: object
+      required:
+      - net_pay_cents
+      - housing_cents
+      - utilities_cents
+      - debt_payment_cents
+      title: Affordability
+    Body_create_case_cases_post:
+      properties:
+        case_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Case Id
+        file:
+          anyOf:
+          - type: string
+            contentMediaType: application/octet-stream
+          - type: 'null'
+          title: File
+      type: object
+      title: Body_create_case_cases_post
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    HiddenChip:
+      properties:
+        count:
+          type: integer
+          title: Count
+        category:
+          type: string
+          title: Category
+        citation:
+          type: string
+          title: Citation
+      additionalProperties: false
+      type: object
+      required:
+      - count
+      - category
+      - citation
+      title: HiddenChip
+    OfficerView:
+      properties:
+        case_id:
+          type: string
+          title: Case Id
+        affordability:
+          $ref: '#/components/schemas/Affordability'
+        explanation:
+          type: string
+          title: Explanation
+        visible_transactions:
+          items:
+            $ref: '#/components/schemas/Transaction'
+          type: array
+          title: Visible Transactions
+        hidden_summary:
+          items:
+            $ref: '#/components/schemas/HiddenChip'
+          type: array
+          title: Hidden Summary
+        flags:
+          items:
+            type: string
+          type: array
+          title: Flags
+        forbearance_options:
+          items:
+            type: string
+          type: array
+          title: Forbearance Options
+        local_note:
+          type: string
+          title: Local Note
+          default: ''
+        human_review_required:
+          type: boolean
+          title: Human Review Required
+          default: false
+        customer_message_status:
+          type: string
+          title: Customer Message Status
+          default: ''
+        caveat:
+          type: string
+          title: Caveat
+          default: This file documents selected fixed obligations only. It does not
+            establish total expenditure or disposable income.
+      additionalProperties: false
+      type: object
+      required:
+      - case_id
+      - affordability
+      - explanation
+      title: OfficerView
+    Question:
+      properties:
+        session_id:
+          type: string
+          title: Session Id
+        question:
+          type: string
+          title: Question
+      type: object
+      required:
+      - session_id
+      - question
+      title: Question
+    Review:
+      properties:
+        officer_id:
+          type: string
+          title: Officer Id
+        action:
+          type: string
+          title: Action
+        reason:
+          type: string
+          title: Reason
+      type: object
+      required:
+      - officer_id
+      - action
+      - reason
+      title: Review
+    Transaction:
+      properties:
+        id:
+          type: string
+          title: Id
+        date:
+          type: string
+          format: date
+          title: Date
+        counterparty:
+          type: string
+          title: Counterparty
+        description:
+          type: string
+          title: Description
+        amount_cents:
+          type: integer
+          title: Amount Cents
+        page:
+          type: integer
+          title: Page
+          default: 1
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - date
+      - counterparty
+      - description
+      - amount_cents
+      title: Transaction
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

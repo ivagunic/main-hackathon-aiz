@@ -1,0 +1,13 @@
+{
+  "case_id": "clean",
+  "applicant": {"name": "Nora Voorbeeld", "address": "Fictiefstraat 12", "postcode": "1234 AB", "iban": "NL00BANK0123456789", "bsn": "123456789", "dob": "1990-01-02", "nationality": "NL", "gender": "X"},
+  "application": {"amount_cents": 500000, "term_months": 36, "purpose": "home repair", "declared_debts": 0},
+  "payslips": [{"id": "p1", "employer": "Voorbeeld Atelier", "period": "2026-10", "gross_cents": 320000, "net_cents": 245000, "raw_text": "Nora Voorbeeld NL00BANK0123456789 BSN 123456789", "page": 1}],
+  "transactions": [
+    {"id": "t1", "date": "2026-10-01", "counterparty": "Woonstichting Fictief", "description": "Huur", "amount_cents": -85000, "page": 1},
+    {"id": "t2", "date": "2026-10-03", "counterparty": "Energie Voorbeeld", "description": "Termijnbetaling Nora Voorbeeld IBAN NL00BANK0123456789 BSN 123456789", "amount_cents": -12000, "page": 1},
+    {"id": "t3", "date": "2026-10-25", "counterparty": "Voorbeeld Werk", "description": "Salaris Nora Voorbeeld IBAN NL00BANK0123456789 BSN 123456789", "amount_cents": 245000, "page": 2}
+  ],
+  "messages": [],
+  "raw_pages": ["Nora Voorbeeld Fictiefstraat 12 NL00BANK0123456789 BSN 123456789", "Nora Voorbeeld IBAN NL00BANK0123456789 BSN 123456789"]
+}

@@ -1,0 +1,41 @@
+source: "User-supplied Step 3 test-data table"
+profiles:
+  - id: A01
+    employment: permanent_contract
+    documents: "one payslip; 30-line Dutch-style statement"
+    net_pay_cents: 280000
+    selected_fixed_obligations_cents: 130000
+    scenario: normal_reconciliation_and_successful_BRANE_routed_drafting
+    detailed_field_values: unavailable_in_source_table
+    source_line_ids: unavailable_in_source_table
+  - id: A02
+    employment: variable_hours_contract
+    documents: "one payslip; 31-line Dutch-style statement"
+    net_pay_cents: 242500
+    period: "October"
+    selected_fixed_obligations_cents: 117500
+    scenario: "mid-statement pharmacy payment; no future-income inference"
+    detailed_field_values: unavailable_in_source_table
+    source_line_ids: unavailable_in_source_table
+  - id: A03
+    employment: two_employers
+    documents: "two payslips in one PDF; two-page, 31-line Dutch-style statement"
+    net_pay_cents: 305000
+    employer_net_pay_cents: [205000, 100000]
+    selected_fixed_obligations_cents: 139500
+    scenario: "match two salary credits; protect repeated identifiers"
+    detailed_field_values: unavailable_in_source_table
+    source_line_ids: unavailable_in_source_table
+  - id: A04
+    employment: self_employed
+    documents: "self-prepared income record; 30-line Dutch-style statement"
+    net_pay_cents: null
+    selected_fixed_obligations_cents: null
+    scenario: "irregular client receipts are unverified; local note and human review; no model request"
+    detailed_field_values: unavailable_in_source_table
+    source_line_ids: unavailable_in_source_table
+synthetic_data_requirements:
+  bsn_placeholder: "BSN-TEST-001 (must not be ingested)"
+  iban_placeholder: "NL00 TEST 0000 0000 01 (deliberately invalid)"
+  include_in_model_request: [net_pay_cents, housing_cents, utilities_cents, debt_payment_cents]
+  note: "Do not fabricate the missing housing/utilities/debt split or source-line IDs; provide the approved line-level fixture table before generating runnable profile documents."

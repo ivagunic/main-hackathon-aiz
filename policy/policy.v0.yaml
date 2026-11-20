@@ -1,0 +1,4 @@
+version: v0
+default: {lane: refuse, rule_id: R-DEFAULT, citation: "No rule matched; fail closed", brane_policy_ref: BRANE-DEFAULT-REFUSE}
+rules:
+  - {id: R-ALLOW-ALL, match: {}, action: calculate, lane: cloud_aggregate, citation: "Demonstration policy v0", brane_policy_ref: BRANE-DEMO-ALLOW-ALL}

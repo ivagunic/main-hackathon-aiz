@@ -1,0 +1,13 @@
+{
+  "case_id": "sensitive",
+  "applicant": {"name": "Mila Verzonnen", "address": "Demoweg 8", "postcode": "5678 CD", "iban": "NL00FAKE0987654321", "bsn": "987654324", "dob": "1988-04-05", "nationality": "NL", "gender": "X"},
+  "application": {"amount_cents": 250000, "term_months": 24, "purpose": "appliance", "declared_debts": 15000},
+  "payslips": [{"id": "p1", "employer": "Fictief Drukwerk", "period": "2026-10", "gross_cents": 280000, "net_cents": 210000, "raw_text": "Mila Verzonnen NL00FAKE0987654321 BSN 987654324", "page": 1}],
+  "transactions": [
+    {"id": "t1", "date": "2026-10-01", "counterparty": "Stichting Fictieve Kerk", "description": "Contributie Mila Verzonnen IBAN NL00FAKE0987654321 BSN 987654324", "amount_cents": -2500, "page": 1},
+    {"id": "t2", "date": "2026-10-04", "counterparty": "Apotheek De Voorbeeldbrug", "description": "Zorgbetaling", "amount_cents": -3200, "page": 1},
+    {"id": "t3", "date": "2026-10-25", "counterparty": "Fictief Drukwerk", "description": "Salaris Mila Verzonnen IBAN NL00FAKE0987654321 BSN 987654324", "amount_cents": 210000, "page": 2}
+  ],
+  "messages": [{"id": "m1", "text": "Ik ben ziek en kan deze maand moeilijk betalen.", "language": "nl"}],
+  "raw_pages": ["Mila Verzonnen Demoweg 8 NL00FAKE0987654321 BSN 987654324", "Mila Verzonnen IBAN NL00FAKE0987654321 BSN 987654324"]
+}

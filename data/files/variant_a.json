@@ -1,0 +1,12 @@
+{
+  "case_id": "variant_a",
+  "applicant": {"name": "Alex Voorbeeld", "address": "Testlaan 4", "postcode": "2222 ZZ", "iban": "NL00MOCK22223333444455", "bsn": "111111110", "dob": "1991-07-08", "nationality": "NL", "gender": "X"},
+  "application": {"amount_cents": 400000, "term_months": 30, "purpose": "synthetic example", "declared_debts": 0},
+  "payslips": [{"id": "pa", "employer": "Testatelier Voorbeeld", "period": "2026-09", "gross_cents": 300000, "net_cents": 230000, "raw_text": "Alex Voorbeeld NL00MOCK22223333444455 BSN 111111110", "page": 1}],
+  "transactions": [
+    {"id": "a1", "date": "2026-09-01", "counterparty": "Woonstichting Nep", "description": "Huur Alex Voorbeeld IBAN NL00MOCK22223333444455 BSN 111111110", "amount_cents": -80000, "page": 1},
+    {"id": "a2", "date": "2026-09-25", "counterparty": "Testatelier Voorbeeld", "description": "Salaris Alex Voorbeeld IBAN NL00MOCK22223333444455 BSN 111111110", "amount_cents": 230000, "page": 2}
+  ],
+  "messages": [],
+  "raw_pages": ["Alex Voorbeeld Testlaan 4 NL00MOCK22223333444455 BSN 111111110", "Alex Voorbeeld IBAN NL00MOCK22223333444455 BSN 111111110"]
+}
