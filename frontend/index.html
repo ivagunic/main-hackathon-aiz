@@ -77,6 +77,7 @@
         <tbody></tbody>
       </table>
       <p id="note"></p>
+      <p id="route-line"></p>
       <p id="caveat"></p>
       <p id="attack" hidden>Some text in the documents looked like instructions to the assistant. It was ignored.</p>
       <p id="message" hidden>The customer sent a message. The assistant did not read it.</p>
@@ -266,6 +267,7 @@ async function readFile() {
   $("read").disabled = true;
   setStatus(MSG.reading);
   $("results").hidden = true;
+  $("route-line").textContent = "";
   $("answer").textContent = "";
   $("decision-status").textContent = "";
   $("decision").reset();  // a decision always belongs to the file on screen
@@ -280,9 +282,11 @@ async function readFile() {
     render(opened.data);
     const record = await api("GET", `/cases/${encodeURIComponent(chosen)}/ledger`);
     citations = {};
-    for (const row of (record.ok && record.data && record.data.rows) || []) {
+    const rows = (record.ok && record.data && record.data.rows) || [];
+    for (const row of rows) {
       if (row.rule_id && row.citation && !citations[row.rule_id]) citations[row.rule_id] = row.citation;
     }
+    $("route-line").textContent = whereItWent(opened.data, rows);
     showRoutes();
     const link = $("download");
     link.href = `/cases/${encodeURIComponent(chosen)}/ledger?fmt=csv`;
@@ -295,6 +299,31 @@ async function readFile() {
   }
 }
 
+// Where the request went, in plain words. Reads only the stored X-Brane routing header of the newest decision.
+function routedTo(row) {
+  let stored = null;
+  try { stored = JSON.parse(row.brane_verdict); } catch (error) { return ""; }
+  const headers = stored && typeof stored === "object" ? stored.headers : null;
+  if (!headers || typeof headers !== "object") return "";
+  const key = Object.keys(headers).find((name) => name.toLowerCase() === "x-brane-routed-to");
+  return key ? String(headers[key]).trim().toLowerCase() : "";
+}
+
+function whereItWent(view, rows) {
+  const flags = view.flags || [];
+  if (flags.includes("brane_blocked")) return "Where the request went: nowhere. The safety check stopped it before it reached the AI.";
+  if (flags.includes("brane_unavailable") || flags.includes("fail_closed") || view.human_review_required) {
+    return "Where the request went: nowhere. Nothing left the bank.";
+  }
+  const decided = rows.filter((row) => row.brane_verdict).sort((a, b) => b.seq - a.seq)[0];
+  if (!decided) return "";
+  if (decided.brane_verdict === "allow") return "Where the request went: practice mode. No real AI was contacted.";
+  const routed = routedTo(decided);
+  if (routed === "cloud") return "Where the request went: to the cloud AI, as four totals only.";
+  if (routed === "local") return "Where the request went: kept inside the bank and answered by a local AI model.";
+  return "";
+}
+
 function render(view) {
   const flags = view.flags || [];
   const failed = flags.includes("fail_closed");
@@ -305,7 +334,11 @@ function render(view) {
   $("attack").hidden = !flags.includes("attack_detected");
   $("message").hidden = !view.customer_message_status;
   if (flags.includes("brane_unavailable")) { setStatus(MSG.offline); $("note").textContent = ""; }
-  else if (flags.includes("brane_blocked")) { setStatus(MSG.blocked); $("note").textContent = ""; }
+  else if (flags.includes("brane_blocked")) {
+    setStatus(MSG.blocked);
+    const reason = String(view.local_note || "").replace(/^BRANE refused the request:\s*/, "");
+    $("note").textContent = reason ? `Reason given by the safety check: ${reason}` : "";
+  }
   else if (failed) { setStatus(MSG.failed); $("note").textContent = ""; }
   else if (view.human_review_required) { setStatus(MSG.review); $("note").textContent = noteText(view); }
   else { setStatus(MSG.ready); $("note").textContent = noteText(view); }

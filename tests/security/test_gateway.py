@@ -18,10 +18,13 @@ def test_live_gateway_without_configuration_fails_closed(monkeypatch):
         BraneClient().complete("system", "aggregate", case_id="synthetic", purpose="test")
 
 
-def test_live_gateway_fails_closed_on_closed_braneserver_without_fallback(monkeypatch):
+def test_live_gateway_fails_closed_on_closed_braneserver_without_fallback(monkeypatch, tmp_path):
     monkeypatch.setenv("BRANE_BASE_URL", "http://127.0.0.1:1")
     monkeypatch.setenv("BRANE_MODEL", "synthetic-model")
+    monkeypatch.setenv("BRANE_API_KEY", "synthetic-test-key-not-a-secret")  # the client now refuses to run without a key
+    monkeypatch.setenv("BRANE_CACHE_PATH", str(tmp_path / "cache.sqlite3"))
     contacts = []
+    four_zero_payload = '{"debt_payment_cents": 0, "housing_cents": 0, "net_pay_cents": 0, "utilities_cents": 0}'
 
     def fail_connect(self, url, **kwargs):
         contacts.append(str(url))
@@ -29,7 +32,7 @@ def test_live_gateway_fails_closed_on_closed_braneserver_without_fallback(monkey
 
     monkeypatch.setattr(httpx.Client, "post", fail_connect)
     with pytest.raises(BraneUnavailable):
-        BraneClient().complete("system", "aggregate", case_id="synthetic", purpose="test")
+        BraneClient().complete("system", four_zero_payload, case_id="synthetic", purpose="test")
     assert contacts == ["http://127.0.0.1:1/chat/completions"]
 
 
@@ -50,6 +53,6 @@ def test_brane_request_construction_is_centralized():
     url, headers, body = build_brane_request(base_url="https://brane.invalid/", path="/v1/chat/completions",
         model="synthetic-model", api_key="test-token", system="system", user="four fields")
     assert url == "https://brane.invalid/v1/chat/completions"
-    assert headers == {"Authorization": "Bearer test-token"}
+    assert headers == {"Authorization": "Bearer test-token", "User-Agent": "BRANE-Starter-Kit/1.0 (MAIN-Summit-2026)"}
     assert body == {"model": "synthetic-model", "temperature": 0, "seed": 0,
         "messages": [{"role": "system", "content": "system"}, {"role": "user", "content": "four fields"}]}

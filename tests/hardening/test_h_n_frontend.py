@@ -78,7 +78,12 @@ def test_page_has_no_score_rating_verdict_or_recommendation():
     assert not re.search(r"(?i)\b(score\w*|rating\w*|recommend\w*|verdict\w*|risk\w*|eligib\w*)\b", visible_text)
     script = re.search(r"<script>(.*)</script>", PAGE, re.DOTALL).group(1)
     assert not re.search(r"(?i)\b(score|rating|recommend\w*|risk)\b", script)
-    assert not re.search(r"(?i)brane_verdict|payload_sha256", script), "page must not surface verdicts or hashes"
+    # Narrowed (approved): the page may read the stored decision only to get the X-Brane routing header.
+    assert not re.search(r"(?i)payload_sha256|raw_response|\.fields\b", script), "page must not surface hashes or response text"
+    uses = re.findall(r"[^\n]*brane_verdict[^\n]*", script)
+    allowed = (r"JSON\.parse\(row\.brane_verdict\)", r"filter\(\(row\) => row\.brane_verdict\)", r'decided\.brane_verdict === "allow"')
+    assert uses and all(any(re.search(pattern, line) for pattern in allowed) for line in uses), uses
+    assert "x-brane-routed-to" in script
     assert "The assistant does not decide. You do." in PAGE
 
 

@@ -10,7 +10,6 @@ from app.classify import classify
 from app.gateway import BraneBlocked, BraneClient, FakeBrane
 from app.intake import load_file, parse_payslip_text
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 

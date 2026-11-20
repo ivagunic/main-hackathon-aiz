@@ -86,8 +86,11 @@ def test_brane_failure_modes_fail_closed_without_retry_or_fallback(monkeypatch, 
     assert any(r["rule_id"] == "P12" and r["aiz_decision"] == "block" for r in run.rows)
 
 
+ROUTED_CLOUD = {"x-brane-routed-to": "cloud", "x-brane-action": "allow"}
+
+
 def test_live_client_harness_positive_control(monkeypatch, tmp_path, run_case):
-    requests = _live_client(monkeypatch, tmp_path, lambda r: httpx.Response(200, json=_ok_body()))
+    requests = _live_client(monkeypatch, tmp_path, lambda r: httpx.Response(200, json=_ok_body(), headers=ROUTED_CLOUD))
     run = run_case("clean")
     assert len(requests) == 1
     assert run.view["explanation"].startswith("A short factual note.")
@@ -96,7 +99,7 @@ def test_live_client_harness_positive_control(monkeypatch, tmp_path, run_case):
 def test_live_verdict_record_does_not_copy_model_text_into_ledger_or_events(monkeypatch, tmp_path, run_case):
     """Matrix section D: ledger rows and events hold decisions, not model or document text."""
     marker = "Synthetic draft sentence that must stay out of the ledger."
-    _live_client(monkeypatch, tmp_path, lambda r: httpx.Response(200, json=_ok_body(text=marker)))
+    _live_client(monkeypatch, tmp_path, lambda r: httpx.Response(200, json=_ok_body(text=marker), headers=ROUTED_CLOUD))
     run = run_case("clean")
     assert marker not in json.dumps(run.rows), "model text copied into ledger brane_verdict"
     assert marker not in run.sse, "model text copied into SSE brane_call event"
