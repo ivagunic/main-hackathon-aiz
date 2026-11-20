@@ -1,18 +1,19 @@
 pharmacy:
   exact: [Apotheek De Voorbeeldbrug, Apotheke Musterbogen, Pharmacie du Pont Fictif]
-  stems: [apotheek, apotheeek, apotheke, pharmacie, huisarts, ggz, fysio, pharmacy, chemist]
+  stems: [apotheek, apotheeek, apotheke, pharmacie, huisarts, ggz, fysio, pharmacy, chemist, farmacia, tandarts]
   allowlist: [Church Street Cafe]
 religion:
   exact: [Stichting Fictieve Kerk]
-  stems: [kerk, church, kirchensteuer, paroisse, congregation, religious donation, collecte, tithe]
+  stems: [kerk, church, kirchensteuer, kirche, paroisse, parochie, eglise, congregation, religious donation, collecte, tithe,
+    moskee, moschee, mosquee, mosque, synagoge, synagogue]
   allowlist: []
 union:
   exact: [Vakbond Voorbeeld]
-  stems: [vakbond, gewerkschaft, syndicat, union dues]
+  stems: [vakbond, gewerkschaft, syndicat, union dues, fnv, cnv]
   allowlist: []
 political_party:
   exact: [Partij Voorbeeld]
-  stems: [political party, politieke partij, party contribution, partijbijdrage]
+  stems: [political party, politieke partij, party contribution, partijbijdrage, partei]
   allowlist: []
 eigen_risico:
   exact: [Eigen Risico Voorbeeld]
@@ -20,7 +21,7 @@ eigen_risico:
   allowlist: []
 hospital:
   exact: [Ziekenhuis Voorbeeld]
-  stems: [ziekenhuis, hospital, kliniek, clinic]
+  stems: [ziekenhuis, hospital, kliniek, clinic, krankenhaus, hopital]
   allowlist: []
 dating_apps:
   exact: [Dating App Voorbeeld]

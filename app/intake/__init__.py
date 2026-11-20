@@ -17,18 +17,22 @@ def parse_file_data(text: str | bytes) -> LoanFile:
         # validation. In particular, BSN and all payslip content except printed
         # net pay are never represented in the runtime object.
         raw = json.loads(text)
+        if not isinstance(raw, dict):
+            raise TypeError("Loan file must be a JSON object")
         raw["customer_message_received"] = bool(raw.get("messages"))
         applicant = raw.get("applicant", {})
         if isinstance(applicant, dict):
             applicant["bsn"] = ""
+        # The employer name is kept only so P2 can pseudonymise it wherever it recurs
+        # (for example as the salary counterparty); no other payslip line is read.
         raw["payslips"] = [
-            {key: slip[key] for key in ("id", "period", "net_cents", "page") if key in slip}
+            {key: slip[key] for key in ("id", "employer", "period", "net_cents", "page") if key in slip}
             for slip in raw.get("payslips", [])
         ]
         raw["raw_pages"] = []
         raw["messages"] = raw.get("messages", []) if os.getenv("HARDSHIP_ENABLED", "false").casefold() == "true" else []
         return LoanFile.model_validate(raw)
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
         raise ValueError(f"Invalid loan file: {exc}") from exc
 
 

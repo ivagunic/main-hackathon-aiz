@@ -14,7 +14,15 @@ from app.hardship import detect
 from app.intake import load_file
 from app.models import Affordability, Element, OfficerView
 from app.policy import Ledger, load_policy, record, route
-from app.pseudo import LeakDetected, assert_clean, build_map, restore, scrub, store_map
+from app.pseudo import (
+    LeakDetected,
+    assert_clean,
+    build_map,
+    mask_identifiers,
+    restore,
+    scrub,
+    store_map,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 LEDGER = Ledger(os.getenv("LEDGER_PATH", str(ROOT / "ledger.sqlite3")))
@@ -24,18 +32,36 @@ ACTIVE_POLICY_VERSION = "v1"
 OUTBOUND_FIELDS = ("net_pay_cents", "housing_cents", "utilities_cents", "debt_payment_cents")
 PROHIBITED_DRAFT = re.compile(
     r"\b(approv\w*|reject\w*|score\w*|risk\w*|recommend\w*|"
-    r"aanbevel\w*|aanraad\w*|adviseer\w*|advies|goedkeur\w*|afkeur\w*|"
-    r"afwijz\w*|risico\w*|beoordel\w*)\b",
+    r"aanbevel\w*|aanbevol\w*|aanraad\w*|aanrad\w*|advis\w*|adviseer\w*|advies|goedkeur\w*|goedgekeur\w*|afkeur\w*|afgekeur\w*|"
+    r"afwijz\w*|afgewez\w*|risico\w*|beoordel\w*)\b",
     re.IGNORECASE,
 )
+# Stems checked again after removing spacing, punctuation and look-alike digits ("a p p r o v e", "sc0re").
+_PROHIBITED_STEMS = ("approv", "reject", "score", "risk", "recommend", "aanbevel", "aanbevol", "aanraad", "aanrad", "advis",
+    "advies", "goedkeur", "goedgekeur", "afkeur", "afgekeur", "afwijz", "afgewez", "risico", "beoordel")
+_LEET = str.maketrans("013457@$", "oieastas")
+MAX_CENTS = 10**9  # EUR 10 million: anything larger is not a plausible monthly figure
+
+
+def _prohibited(text: str) -> bool:
+    import unicodedata
+
+    folded = unicodedata.normalize("NFKC", text).casefold()
+    visible = "".join(ch for ch in folded if unicodedata.category(ch) != "Cf")
+    if PROHIBITED_DRAFT.search(visible):
+        return True
+    collapsed = re.sub(r"[^a-z]", "", "".join(ch for ch in unicodedata.normalize("NFKD", visible.translate(_LEET)) if not unicodedata.combining(ch)))
+    return any(stem in collapsed for stem in _PROHIBITED_STEMS)
 
 
 def validate_cloud_payload(payload: dict) -> None:
-    """Reject extra fields and non-integer values before gateway dispatch."""
+    """Reject extra fields, non-integer and out-of-range values before gateway dispatch."""
     if not isinstance(payload, dict) or set(payload) != set(OUTBOUND_FIELDS):
         raise ValueError("Outbound payload must contain exactly four approved fields")
     if any(type(payload[name]) is not int for name in OUTBOUND_FIELDS):
         raise TypeError("Outbound values must be integers")
+    if any(not 0 <= payload[name] <= MAX_CENTS for name in OUTBOUND_FIELDS):
+        raise ValueError("Outbound values must be non-negative and within range")
 
 
 def _figures(affordability: Affordability) -> dict[str, int]:
@@ -56,7 +82,7 @@ def _checked_draft(text: str, affordability: Affordability) -> str:
     values = _figures(affordability)
     allowed_numbers = {str(value) for value in values.values()}
     numbers = re.findall(r"(?<!\w)\d+(?:[,.]\d+)?", text)
-    if PROHIBITED_DRAFT.search(text) or any(value not in allowed_numbers for value in numbers):
+    if _prohibited(text) or any(value not in allowed_numbers for value in numbers):
         text = "Template note: review the source documents and reconcile the listed figures."
     verified = "; ".join(f"{name}={value}" for name, value in values.items())
     return f"{text.strip()}\nVerified local figures: {verified}."
@@ -69,6 +95,8 @@ def _note_view(case_id: str, affordability: Affordability, note: str, *, receive
 
 
 def process(case_id: str, path: str | Path | None = None) -> OfficerView:
+    if path is None and not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", case_id):
+        raise ValueError("Invalid case id")  # no separators, dots or drive letters in fixture lookups
     source = Path(path) if path else ROOT / "data" / "files" / f"{case_id}.json"
     loan = load_file(source)
     EVENTS[case_id] = [{"type": "case_started", "case_id": case_id, "ts": datetime.now(UTC).isoformat()}]
@@ -108,7 +136,8 @@ def process(case_id: str, path: str | Path | None = None) -> OfficerView:
         element = next((e for e in routed if e.source_ref == f"tx:{tx.id}"), None)
         if element and element.lane in ("local_only", "excluded", "refuse"):
             continue
-        visible.append(tx.model_copy(update={"counterparty": scrub(tx.counterparty, pseudo_map), "description": scrub(tx.description, pseudo_map)}))
+        visible.append(tx.model_copy(update={"counterparty": mask_identifiers(scrub(tx.counterparty, pseudo_map)),
+            "description": mask_identifiers(scrub(tx.description, pseudo_map))}))
 
     # P14: an evidence gap is handled locally, without any gateway invocation.
     self_employed = getattr(loan.applicant, "income_type", "") == "self_employed"
@@ -126,9 +155,13 @@ def process(case_id: str, path: str | Path | None = None) -> OfficerView:
         EVENTS[case_id].append({"type": "human_review_required", "rule_id": "P14", "ts": datetime.now(UTC).isoformat()})
         return view
 
-    user_data = _figures(affordability)
-    validate_cloud_payload(user_data)
     try:
+        user_data = _figures(affordability)
+        validate_cloud_payload(user_data)
+        # Egress follows the active policy: the aggregate must route to the cloud lane before dispatch.
+        aggregate = route(Element(id=hashlib.sha1(f"{case_id}:aggregate".encode()).hexdigest()[:12], source_ref="aggregate:explanation", kind="aggregate", text="", category="financial_fact", detector="pipeline"), "calculate", policy)
+        if aggregate.lane != "cloud_aggregate":
+            raise PermissionError("Active policy does not allow the aggregate payload to leave")
         if os.getenv("PRESCRUB", "on").casefold() != "on":
             raise BraneUnavailable("Outbound raw-source mode is disabled; only the four-field payload is permitted")
         user = json.dumps(user_data, sort_keys=True)
@@ -147,11 +180,10 @@ def process(case_id: str, path: str | Path | None = None) -> OfficerView:
             draft = "Template note: review the source documents and reconcile the listed figures."
         explanation = _checked_draft(draft, affordability)
         EVENTS[case_id].append({"type": "brane_call", "verdict": result.verdict, "payload_sha256": result.payload_sha256, "ts": datetime.now(UTC).isoformat()})
-        aggregate = route(Element(id=hashlib.sha1(f"{case_id}:aggregate".encode()).hexdigest()[:12], source_ref="aggregate:explanation", kind="aggregate", text="", category="financial_fact", detector="pipeline"), "calculate", policy)
         record(case_id, aggregate, policy["version"], LEDGER, verdict=result.verdict, payload_hash=result.payload_sha256)
     except BraneBlocked as exc:
         blocked = Element(id=hashlib.sha1(f"{case_id}:brane-blocked".encode()).hexdigest()[:12], source_ref="brane:decision", kind="control", text="", category="financial_fact", detector="brane", lane="refuse", rule_id="P12", citation="GDPR Arts. 25(1), 32(1); challenge brief (check-failure test)", brane_policy_ref="BRANE-P12-FAIL-CLOSED")
-        record(case_id, blocked, policy["version"], LEDGER, verdict=exc.decision or "block")
+        record(case_id, blocked, policy["version"], LEDGER, verdict=exc.decision or f"block: HTTP {exc.status_code}")
         EVENTS[case_id].append({"type": "fail_closed", "case_id": case_id, "ts": datetime.now(UTC).isoformat()})
         view = OfficerView(case_id=case_id, affordability=affordability, explanation="external drafting unavailable", flags=["brane_blocked"])
         VIEWS[case_id] = view

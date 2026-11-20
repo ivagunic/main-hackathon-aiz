@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.models import Affordability, Element, LoanFile
+from app.pseudo import identity_map, scrub
 
 HOUSING_TERMS = ("rent", "huur", "housing", "woonlast", "hypotheek", "mortgage")
 UTILITY_TERMS = ("energy", "energie", "electric", "water", "gas", "utilities", "nuts")
@@ -16,12 +17,19 @@ def compute(file: LoanFile, elements: list[Element]) -> Affordability:
         for element in elements
         if element.category in {"special_category", "criminal"} and element.source_ref.startswith("tx:")
     }
-    months = max(len({tx.date.strftime("%Y-%m") for tx in file.transactions}), 1)
+    # Excluded lines must not influence the averaging period either (P4, P5).
+    months = max(len({tx.date.strftime("%Y-%m") for tx in file.transactions if tx.id not in excluded_ids}), 1)
     printed_net = sum(slip.net_cents for slip in file.payslips)
+    # The applicant's own name and address never decide a budget category (P8).
+    identity = identity_map(file)
+
+    def line_text(tx) -> str:
+        return scrub(f"{tx.counterparty} {tx.description}", identity).casefold()
+
     salary_credits = [
         tx for tx in file.transactions
         if tx.id not in excluded_ids and tx.amount_cents > 0
-        and any(term in f"{tx.counterparty} {tx.description}".casefold() for term in SALARY_TERMS)
+        and any(term in line_text(tx) for term in SALARY_TERMS)
     ]
     salary_credit_total = sum(tx.amount_cents for tx in salary_credits)
     net_pay = printed_net
@@ -33,7 +41,7 @@ def compute(file: LoanFile, elements: list[Element]) -> Affordability:
     for tx in sorted(file.transactions, key=lambda item: (item.date, item.id)):
         if tx.id in excluded_ids or tx.amount_cents >= 0:
             continue
-        text = f"{tx.counterparty} {tx.description}".casefold()
+        text = line_text(tx)
         amount = -tx.amount_cents
         if any(term in text for term in DEBT_TERMS):
             debt_total += amount

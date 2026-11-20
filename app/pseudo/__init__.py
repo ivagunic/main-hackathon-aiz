@@ -49,6 +49,9 @@ def _pattern_for(value: str, token: str) -> re.Pattern[str]:
             initials = " ".join(f"{part[0]}" for part in given)
             names.update({f"{initials}. {surname}", f"{surname} {initials}", f"{surname} {initials}."})
         alternatives = sorted((re.escape(n).replace(r"\ ", r"\s+") for n in names), key=len, reverse=True)
+        if len(parts) >= 2:
+            # "A.M. Surname", "A. M. Surname", "A M Surname"
+            alternatives.append(r"\.?\s*".join(re.escape(part[0]) for part in given) + r"\.?\s*" + re.escape(surname).replace(r"\ ", r"\s+"))
         return re.compile(r"(?<!\w)(?:" + "|".join(alternatives) + r")(?!\w)", re.IGNORECASE)
     escaped = re.escape(value.strip()).replace(r"\ ", r"\s+")
     return re.compile(escaped, re.IGNORECASE)
@@ -58,6 +61,21 @@ def scrub(text: str, map: PseudoMap) -> str:
     for value, token in sorted(map.replacements, key=lambda item: len(item[0]), reverse=True):
         text = _pattern_for(value, token).sub(token, text)
     return text
+
+
+_GENERIC_IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]){11,30}\b", re.IGNORECASE)
+_GENERIC_NATIONAL_ID = re.compile(r"(?<![\d.])\d(?:[.\s-]*\d){8}(?![\d])")
+
+
+def mask_identifiers(text: str) -> str:
+    """Mask IBAN- and BSN-shaped values that are not in the applicant map (P2, P3)."""
+    return _GENERIC_NATIONAL_ID.sub("<REMOVED_NATIONAL_ID>", _GENERIC_IBAN.sub("<IBAN>", text))
+
+
+def identity_map(file: LoanFile) -> PseudoMap:
+    """Applicant name and address only: used to keep them out of keyword matching (P8)."""
+    a = file.applicant
+    return PseudoMap([(value, token) for value, token in ((a.name, "<PERSON_1>"), (a.address, "<ADDRESS_1>")) if value])
 
 
 def restore(text: str, map: PseudoMap) -> str:
