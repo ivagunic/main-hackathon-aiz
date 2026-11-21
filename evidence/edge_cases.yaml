@@ -9,7 +9,7 @@ E3:
   expected: "local; union and church-tax details stay within BRANE's local lane."
 E4:
   input: "01-11 Zorgverzekering premie -148,00."
-  expected: "record the observed route/action and flag for legal review; mandatory insurance is not a health condition."
+  expected: "BRANE alone allows it; a premium is not health data in itself. In the product the agent never sends it: only four totals leave (P7)"
 E5:
   input: "Transfer to J. Jansen, description: bijdrage operatie mama -200,00."
   expected: "local; private transfer containing a medical note stays within BRANE's local lane."

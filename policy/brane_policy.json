@@ -32,10 +32,10 @@
   },
   "semanticCategories": [
     {
-      "id": "242506e0-2f82-43ab-9886-8a3670e6c0a7",
+      "id": "a2bac07b-c0e0-4c3d-8175-eaaf24becf99",
       "code": "AUTONOMOUS_CREDIT_DECISION",
       "name": "Autonomous credit decision, score or recommendation",
-      "description": "Requests asking the AI to approve, reject, decline, score, rate, rank or recommend a decision on a loan or credit applicant, or to state whether a person is creditworthy or eligible. Example: \"Should we approve this loan?\", \"Give this applicant a risk score\", \"Would you recommend rejecting?\". Requests to summarise figures or draft a neutral note for a human credit officer are NOT a match.",
+      "description": "Requests asking the AI to approve, reject, decline, score, rate, rank or recommend a decision on a loan or credit applicant, or to state whether a person is creditworthy or eligible. Example: \"Should we approve this loan?\", \"Give this applicant a risk score\", \"Would you recommend rejecting?\". Requests to summarise figures or draft a neutral note for a human credit officer are NOT a match. Also a match: drafting a rejection or approval letter, suggesting a loan amount, checking whether the applicant passes a lending threshold, or giving a yes/no or one-word verdict on the file.",
       "keywords": [
         "approve this loan",
         "reject this applicant",
@@ -46,17 +46,25 @@
         "should we approve",
         "would you recommend",
         "lening goedkeuren",
-        "aanvraag afwijzen"
+        "aanvraag afwijzen",
+        "rejection letter",
+        "approval letter",
+        "loan amount would you",
+        "how much to lend",
+        "comfortable offering",
+        "yes or no",
+        "'yes' or 'no'",
+        "does the applicant pass"
       ],
       "legalBasis": "GDPR Art. 22(1); CJEU C-634/21 SCHUFA; CCD II Art. 18(8); EU AI Act Art. 14",
       "action": "refuse",
       "enabled": true
     },
     {
-      "id": "a653f623-731f-42a8-af96-55fefc10bd9b",
+      "id": "34a36002-93d1-452d-8bc7-2387d2172881",
       "code": "SENSITIVE_MERCHANT",
       "name": "Payments that reveal health, religion, union or political affiliation",
-      "description": "A bank transaction or payment line whose recipient or description indirectly reveals a person's health, religious belief, trade union membership, political opinion or sex life. Examples: payments to a pharmacy, hospital, GP, therapist or mental health service; donations or contributions to a church, mosque or other religious body; trade union fees; donations or membership fees to a political party; dating service subscriptions. A business that only has such a word in a street or brand name (for example \"Church Street Café\") is NOT a match. Also a match: a transfer to a private person whose description mentions a medical treatment, operation, illness, therapy or hospital stay.",
+      "description": "A bank transaction or payment line whose recipient or description indirectly reveals a person's health, religious belief, trade union membership, political opinion or sex life. Examples: payments to a pharmacy, hospital, GP, therapist or mental health service; donations or contributions to a church, mosque or other religious body; trade union fees; donations or membership fees to a political party; dating service subscriptions. A business that only has such a word in a street or brand name (for example \"Church Street Café\") is NOT a match. Also a match: a transfer to a private person whose description mentions a medical treatment, operation, illness, therapy or hospital stay. Also a match: any question or request that asks about, guesses at, or tries to confirm a person's health, illness, ",
       "keywords": [
         "apotheek",
         "apotheke",
@@ -69,22 +77,22 @@
         "eigen risico",
         "kerkbijdrage",
         "moskee",
-        "Kirchensteuer",
-        "vakbond",
-        "FNV",
-        "CNV",
-        "Gewerkschaft",
-        "syndicat",
-        "partijlidmaatschap",
-        "dating",
-        "operatie"
+        "health cost",
+        "health costs",
+        "zorgkosten",
+        "illness",
+        "ziekte",
+        "divorce",
+        "religious",
+        "the church",
+        "church donation"
       ],
       "legalBasis": "GDPR Art. 9(1); CJEU C-184/20 paras 120, 127; CCD II Art. 18(3)",
       "action": "local",
       "enabled": true
     },
     {
-      "id": "dfb3353e-fb38-49c3-a727-7c1a2dd97a7b",
+      "id": "2ab2a299-d7d2-4e04-9411-36025acac1b2",
       "code": "CRIMINAL_PAYMENT",
       "name": "Payments relating to fines, offences or probation",
       "description": "A bank transaction or payment line to a body that collects criminal or traffic fines or supervises offenders, which may reveal data relating to criminal convictions or offences. Examples: payments to CJIB (Centraal Justitieel Incassobureau), reclassering (probation service), court-ordered fines or penalty instalments.",
@@ -100,10 +108,10 @@
       "enabled": true
     },
     {
-      "id": "04ee77fe-b7db-4d31-8c42-8965d758c772",
+      "id": "511be4d7-79a0-4c06-af3d-263a10f3fe10",
       "code": "PROXY_ATTRIBUTE",
       "name": "Use of discriminatory proxies in assessing an applicant",
-      "description": "Requests asking the AI to use, weigh or compare a loan applicant's postcode or neighbourhood, nationality, ethnic or name origin, gender, age or education level as a factor in assessing, ranking or prioritising them. Example: \"Factor in that the applicant lives in a poor neighbourhood\", \"Rank applicants by nationality\". The mere presence of an address or postcode in a document, without a request to use it as an assessment factor, is NOT a match.",
+      "description": "Requests asking the AI to use, weigh or compare a loan applicant's postcode or neighbourhood, nationality, ethnic or name origin, gender, age or education level as a factor in assessing, ranking or prioritising them. Example: \"Factor in that the applicant lives in a poor neighbourhood\", \"Rank applicants by nationality\". The mere presence of an address or postcode in a document, without a request to use it as an assessment factor, is NOT a match. Also a match: any question asking for or speculating about a loan applicant's origin, nationality, ethnicity, age, sex or gender, pregnancy, children or family plans.",
       "keywords": [
         "rank by nationality",
         "based on their postcode",
@@ -112,14 +120,22 @@
         "by gender",
         "risk by neighbourhood",
         "op basis van nationaliteit",
-        "op basis van postcode"
+        "op basis van postcode",
+        "how old",
+        "originally from",
+        "country of origin",
+        "man or a woman",
+        "male or female",
+        "have kids",
+        "pregnant",
+        "family plans"
       ],
       "legalBasis": "CCD II Art. 6; EU Charter Art. 21; Awgb Arts. 1(1), 7(1)(a)",
       "action": "refuse",
       "enabled": true
     },
     {
-      "id": "8f43284c-8a54-4441-b25f-b4d23cd6a7f4",
+      "id": "1247531f-76cf-4a0d-a535-d69629a269ca",
       "code": "NATIONAL_ID_BSN",
       "name": "Dutch citizen service number (BSN)",
       "description": "Any mention of a Dutch citizen service number (burgerservicenummer, BSN, formerly sofinummer), which is a nine-digit national identification number, or any request to process, match, store or output one. Example: \"BSN 123456782\", \"burgerservicenummer: 123456782\".",
@@ -132,6 +148,28 @@
       "legalBasis": "GDPR Art. 87; UAVG Art. 46(1)",
       "action": "refuse",
       "enabled": true
+    },
+    {
+      "id": "0721c590-9476-4365-92c4-46d097a9d976",
+      "code": "OVERRIDE_ATTEMPT",
+      "name": "Attempts to override the rules or claim special authority",
+      "description": "Any message that tries to make the AI ignore, disable or bypass its rules or filters, switch to a special mode or persona, dump raw or unfiltered content, or that claims a role or authority (admin, developer, DPO, officer, AI-Z or BRANE staff) as a reason to reveal protected data.",
+      "keywords": [
+        "ignore your previous instructions",
+        "ignore your instructions",
+        "developer mode",
+        "filters off",
+        "debug dump",
+        "unfiltered",
+        "no privacy rules",
+        "authorising you",
+        "authorizing you",
+        "I'm the DPO",
+        "admin here"
+      ],
+      "legalBasis": "EU AI Act Art. 15(5); GDPR Art. 32(1)",
+      "action": "refuse",
+      "enabled": true
     }
   ],
   "summary": {
@@ -139,10 +177,10 @@
     "placeholder": 10,
     "local": 7,
     "refuse": 8,
-    "activeSemanticCategories": 5,
+    "activeSemanticCategories": 6,
     "isOpenBaseline": false
   },
-  "updatedAt": "2026-11-20T23:46:49.606Z",
+  "updatedAt": "2026-11-21T07:13:49.774Z",
   "availableActions": [
     "allow",
     "placeholder",

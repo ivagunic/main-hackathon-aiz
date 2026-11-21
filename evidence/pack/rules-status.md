@@ -11,7 +11,7 @@
 - **P9 — NOT BUILT** (no passing test; design gap); enforced by agent.
 - **P10 — IMPLEMENTED** (passing test: `test_p10_view_displays_only_neutral_message_receipt`); enforced by agent.
 - **P11 — PARTIAL** (passing test: `T4`); enforced by agent and BRANE.
-- **P12 — IMPLEMENTED** (passing test: `T5b`); enforced by agent and BRANE.
-- **P13 — IMPLEMENTED** (passing test: `test_clean_draft_passes_through`); enforced by agent.
+- **P12 — IMPLEMENTED** (passing test: `T5`); enforced by agent and BRANE.
+- **P13 — IMPLEMENTED** (passing test: `test_r4_tampered_or_decisional_draft_uses_template`); enforced by agent.
 - **P14 — IMPLEMENTED** (passing test: `test_p14_evidence_gap_stays_local_and_requires_human_review`); enforced by agent.
 - **P15 — IMPLEMENTED** (passing test: `test_valid_review_is_recorded`); enforced by agent.
