@@ -132,6 +132,7 @@
       <button type="submit">Ask</button>
     </form>
     <p id="answer" role="status" aria-live="polite"></p>
+    <p id="answer-check" aria-live="polite"></p>
   </section>
 
   <section class="presenter" aria-labelledby="presenter">
@@ -163,7 +164,11 @@ const MSG = {
   noFile: "Please read a file first.",
   recorded: "Your decision has been recorded.",
   unreachable: "Cannot reach the assistant.",
+  unchecked: "BRANE did not confirm this answer, so it is not shown.",
 };
+
+// Labels that mean BRANE gave a positive verdict for that exact request.
+const ANSWER_LABELS = ["allowed", "name replaced", "kept inside the bank"];
 
 // Plain words for the placeholders the assistant puts where personal details were removed.
 const PLACEHOLDERS = [
@@ -269,6 +274,7 @@ async function readFile() {
   $("results").hidden = true;
   $("route-line").textContent = "";
   $("answer").textContent = "";
+  $("answer-check").textContent = "";
   $("decision-status").textContent = "";
   $("decision").reset();  // a decision always belongs to the file on screen
   try {
@@ -372,14 +378,23 @@ async function askQuestion(event) {
   event.preventDefault();
   const question = $("question").value.trim();
   const out = $("answer");
+  const check = $("answer-check");
   if (!question) return;
-  if (!caseId) { out.textContent = MSG.noFile; return; }
+  if (!caseId) { out.textContent = MSG.noFile; check.textContent = ""; return; }
   try {
     const result = await api("POST", `/cases/${encodeURIComponent(caseId)}/ask`, { session_id: sessionId, question });
-    if (!result.ok || !result.data) { out.textContent = result.status === 409 ? "Please read the file again first." : MSG.unreachable; return; }
+    if (!result.ok || !result.data) { out.textContent = result.status === 409 ? "Please read the file again first." : MSG.unreachable; check.textContent = ""; return; }
+    const label = String(result.data.checked_by || "");
     const text = String(result.data.text || "").replace(/(\d+) cents/g, (_, c) => euros(Number(c)));
-    out.textContent = result.data.refused ? `The assistant will not answer this question. ${text}` : text;
-  } catch (error) { out.textContent = MSG.unreachable; }
+    if (result.data.refused) {
+      out.textContent = text;  // the refusal sentence only, never an answer
+    } else if (ANSWER_LABELS.includes(label)) {
+      out.textContent = text;  // shown only on a positive BRANE verdict
+    } else {
+      out.textContent = MSG.unchecked;
+    }
+    check.textContent = label ? `Checked by BRANE: ${label}` : "Not sent to BRANE: stopped before sending.";
+  } catch (error) { out.textContent = MSG.unreachable; check.textContent = ""; }
 }
 
 async function toggleOffline() {

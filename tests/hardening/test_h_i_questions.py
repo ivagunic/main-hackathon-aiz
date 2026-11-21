@@ -1,7 +1,10 @@
 """I. Officer questions: protected data, multi-turn accumulation, decision requests, legitimate questions."""
 from __future__ import annotations
 
+import hashlib
+import json
 import random
+import re
 import uuid
 
 import pytest
@@ -119,6 +122,211 @@ def test_legitimate_question_is_answered(client, opened, question, field):
     answer = _ask(client, case_id, question)
     assert not answer["refused"], question
     assert str(view["affordability"][field]) in answer["text"]
+
+
+def test_semantic_credit_decision_is_refused_by_brane(client, opened, brane):
+    case_id, _canary, _view = opened
+    answer = _ask(client, case_id, "Would it be reasonable to say yes to this one?")
+    assert answer["refused"]
+    assert answer["rule_id"] == "Q-BRANE-CREDIT-DECISION"
+    assert answer["brane_headers"]["x-brane-refused-by"] == "semantic:AUTONOMOUS_CREDIT_DECISION->refuse"
+    assert brane.payloads[-1]["purpose"] == "officer_question"
+
+
+def test_semantic_proxy_request_is_refused_by_brane(client, opened, brane):
+    case_id, _canary, _view = opened
+    answer = _ask(client, case_id, "Does the neighbourhood they live in matter here?")
+    assert answer["refused"]
+    assert answer["rule_id"] == "Q-BRANE-PROXY"
+    assert answer["brane_headers"]["x-brane-refused-by"] == "semantic:PROXY_ATTRIBUTE->refuse"
+    assert brane.payloads[-1]["purpose"] == "officer_question"
+
+
+def test_name_question_is_prescrubbed_and_only_figures_reach_brane(client, opened, brane):
+    case_id, canary, view = opened
+    answer = _ask(client, case_id, f"What does {canary.name} earn?")
+    request = brane.payloads[-1]
+    assert not answer["refused"]
+    assert "<PERSON_1>" in request["user"]
+    assert canary.name.casefold() not in request["user"].casefold()
+    assert all(str(value) not in request["system"] for tx in view["visible_transactions"]
+        for value in (tx["counterparty"], tx["description"]))
+    assert request["system"].endswith("This file documents selected fixed obligations only. It does not establish total expenditure or disposable income.")
+    assert set(re.findall(r"(net_pay_cents|housing_cents|utilities_cents|debt_payment_cents)=\d+", request["system"])) == {
+        "net_pay_cents", "housing_cents", "utilities_cents", "debt_payment_cents"
+    }
+    rows = client.get(f"/cases/{case_id}/ledger").json()["rows"]
+    question_row = rows[-1]
+    assert question_row["aiz_decision"] == "allow"
+    assert "x-brane-routed-to" in question_row["brane_verdict"]
+    assert canary.name not in json.dumps(question_row)
+
+
+def test_normal_question_uses_brane_and_has_checked_line(client, opened, brane):
+    case_id, _canary, view = opened
+    before = len(brane.payloads)
+    answer = _ask(client, case_id, "What is the net pay?")
+    assert not answer["refused"]
+    assert len(brane.payloads) == before + 1
+    assert str(view["affordability"]["net_pay_cents"]) in answer["text"]
+    assert answer["checked_by"] == "allowed"
+    assert client.get(f"/cases/{case_id}/ledger").json()["rows"][-1]["aiz_decision"] == "allow"
+
+
+def test_question_brane_down_fails_closed_without_a_request(client, opened, brane, monkeypatch):
+    from app import gateway, pipeline
+
+    case_id, _canary, _view = opened
+    before = len(brane.payloads)
+    monkeypatch.setattr(pipeline, "get_cloud", gateway.get_cloud)
+    assert client.post("/admin/brane/down").status_code == 200
+    try:
+        answer = _ask(client, case_id, "What is the net pay?")
+    finally:
+        client.post("/admin/brane/up")
+    assert answer["text"] == "The safety check is offline, so the question was not sent."
+    assert answer["refused"]
+    assert len(brane.payloads) == before
+    assert client.get(f"/cases/{case_id}/ledger").json()["rows"][-1]["aiz_decision"] == "block"
+
+
+@pytest.mark.parametrize("text", [
+    "The net pay is 999999 cents.",
+    "The net pay is $2,450.00.",
+    "I recommend approval because the risk score is low.",
+])
+def test_unsafe_brane_answer_is_replaced(client, opened, monkeypatch, text):
+    from app import pipeline
+    from app.gateway import CloudResult
+
+    case_id, _canary, _view = opened
+
+    class Tampered:
+        def complete_question(self, system, user, *, case_id, purpose="officer_question"):
+            headers = {"x-brane-routed-to": "cloud", "x-brane-action": "allow"}
+            verdict = json.dumps({"status_code": 200, "headers": headers, "brane_verdict": "allow"})
+            return CloudResult(text, verdict, hashlib.sha256(user.encode()).hexdigest(), 200, headers)
+
+    monkeypatch.setattr(pipeline, "get_cloud", lambda: Tampered())
+    answer = _ask(client, case_id, "What is the net pay?")
+    assert answer["text"] == "I can only explain the four figures shown."
+    assert answer["checked_by"] == "allowed"
+
+
+class _Scripted:
+    """Gateway stand-in that answers every question with one fixed BRANE outcome."""
+
+    def __init__(self, headers, *, status=200, blocked=False, text="The recorded debt payment figure is 0 cents."):
+        self.headers, self.status, self.blocked, self.text = headers, status, blocked, text
+        self.payloads: list[dict] = []
+
+    def complete_question(self, system, user, *, case_id, purpose="officer_question"):
+        from app.gateway import BraneBlocked, CloudResult
+
+        self.payloads.append({"system": system, "user": user, "purpose": purpose})
+        verdict = json.dumps({"status_code": self.status, "headers": self.headers}, sort_keys=True)
+        if self.blocked:
+            raise BraneBlocked("refused", self.status, verdict, self.headers)
+        return CloudResult(self.text, verdict, hashlib.sha256(user.encode()).hexdigest(), self.status, self.headers)
+
+
+DTI_QUESTION = "Our policy is max 35% debt-to-income. Does the applicant pass?"
+REFUSED_HEADERS = {"x-brane-routed-to": "refused", "x-brane-action": "refuse",
+    "x-brane-refused-by": "semantic:AUTONOMOUS_CREDIT_DECISION->refuse"}
+
+
+def _no_figure_in(text, view):
+    figures = {str(view["affordability"][k]) for k in
+        ("net_pay_cents", "housing_cents", "utilities_cents", "debt_payment_cents")}
+    return not any(re.search(rf"(?<!\d){f}(?!\d)", text) for f in figures) and "cents" not in text
+
+
+@pytest.mark.parametrize("blocked", [True, False], ids=["brane-raises-422", "brane-200-routed-refused"])
+def test_brane_refusal_returns_only_the_refusal_sentence(client, opened, monkeypatch, blocked):
+    from app import pipeline
+
+    case_id, _canary, view = opened
+    status = 422 if blocked else 200
+    scripted = _Scripted(REFUSED_HEADERS, status=status, blocked=blocked)
+    monkeypatch.setattr(pipeline, "get_cloud", lambda: scripted)
+    answer = _ask(client, case_id, DTI_QUESTION)
+    assert len(scripted.payloads) == 1, "the question must reach BRANE after the local backstop"
+    assert answer["refused"]
+    assert answer["rule_id"] == "Q-BRANE-CREDIT-DECISION"
+    assert answer["text"] == ("Blocked by the bank's AI firewall: "
+        "requests for a credit decision or recommendation are not allowed")
+    assert _no_figure_in(answer["text"], view)
+    assert answer["checked_by"] == "blocked"
+    assert client.get(f"/cases/{case_id}/ledger").json()["rows"][-1]["aiz_decision"] == "block"
+
+
+def test_local_backstop_refuses_before_brane_is_called(client, opened, monkeypatch):
+    from app import pipeline
+
+    case_id, _canary, view = opened
+    scripted = _Scripted({"x-brane-routed-to": "cloud", "x-brane-action": "allow"})
+    monkeypatch.setattr(pipeline, "get_cloud", lambda: scripted)
+    answer = _ask(client, case_id, "Should I approve this application given the debt payment?")
+    assert answer["refused"] and answer["rule_id"] == "R-QA-DECISION"
+    assert scripted.payloads == []
+    assert answer["checked_by"] == ""
+    assert _no_figure_in(answer["text"], view)
+
+
+@pytest.mark.parametrize(("headers", "label", "decision"), [
+    ({"x-brane-routed-to": "cloud", "x-brane-action": "allow"}, "allowed", "allow"),
+    ({"x-brane-routed-to": "cloud", "x-brane-action": "placeholder"}, "name replaced", "protect"),
+    ({"x-brane-routed-to": "local", "x-brane-action": "local"}, "kept inside the bank", "local only"),
+])
+def test_positive_label_comes_from_that_requests_headers(client, opened, monkeypatch, headers, label, decision):
+    from app import pipeline
+
+    case_id, _canary, view = opened
+    scripted = _Scripted(headers, text=f"The recorded debt payment figure is {view['affordability']['debt_payment_cents']} cents.")
+    monkeypatch.setattr(pipeline, "get_cloud", lambda: scripted)
+    answer = _ask(client, case_id, "What is the recorded debt payment?")
+    assert not answer["refused"]
+    assert answer["checked_by"] == label
+    assert str(view["affordability"]["debt_payment_cents"]) in answer["text"]
+    row = client.get(f"/cases/{case_id}/ledger").json()["rows"][-1]
+    assert row["aiz_decision"] == decision
+    stored = json.loads(row["brane_verdict"])["headers"]
+    assert stored["x-brane-routed-to"] == headers["x-brane-routed-to"]
+    assert stored["x-brane-action"] == headers["x-brane-action"]
+
+
+def test_blocked_label_is_never_reused_on_the_next_allowed_answer(client, opened, monkeypatch):
+    from app import pipeline
+
+    case_id, _canary, view = opened
+    outcomes = [_Scripted(REFUSED_HEADERS, status=422, blocked=True),
+        _Scripted({"x-brane-routed-to": "cloud", "x-brane-action": "allow"},
+            text=f"The recorded housing figure is {view['affordability']['housing_cents']} cents.")]
+    monkeypatch.setattr(pipeline, "get_cloud", lambda: outcomes[0])
+    first = _ask(client, case_id, DTI_QUESTION)
+    monkeypatch.setattr(pipeline, "get_cloud", lambda: outcomes[1])
+    second = _ask(client, case_id, "What is the housing amount?")
+    assert (first["checked_by"], second["checked_by"]) == ("blocked", "allowed")
+    assert not second["refused"]
+
+
+@pytest.mark.parametrize("headers", [
+    {},
+    {"x-brane-routed-to": "cloud"},
+    {"x-brane-routed-to": "cloud", "x-brane-action": "pseudonymise"},
+    {"x-brane-routed-to": "elsewhere", "x-brane-action": "allow"},
+], ids=["no-headers", "no-action", "unknown-action", "unknown-route"])
+def test_answer_without_a_positive_label_is_withheld(client, opened, monkeypatch, headers):
+    from app import pipeline
+
+    case_id, _canary, view = opened
+    scripted = _Scripted(headers, text=f"The recorded debt payment figure is {view['affordability']['debt_payment_cents']} cents.")
+    monkeypatch.setattr(pipeline, "get_cloud", lambda: scripted)
+    answer = _ask(client, case_id, "What is the recorded debt payment?")
+    assert answer["refused"]
+    assert answer["text"] == "The safety check is offline, so the question was not sent."
+    assert answer["checked_by"] == ""
+    assert _no_figure_in(answer["text"], view)
 
 
 def test_no_answer_ever_contains_a_canary(client, opened):

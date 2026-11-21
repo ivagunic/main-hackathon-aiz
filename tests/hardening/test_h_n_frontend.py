@@ -73,6 +73,24 @@ def test_page_never_reads_the_raw_file(client):
     assert "visible_transactions" in PAGE
 
 
+def test_question_answer_has_a_plain_brane_check_line():
+    assert '<p id="answer-check"' in PAGE
+    assert "Checked by BRANE: ${label}" in PAGE
+    # The label is never invented by the page: a missing label must not default to any verdict word.
+    assert '|| "blocked"' not in PAGE and "|| 'blocked'" not in PAGE
+    assert 'const ANSWER_LABELS = ["allowed", "name replaced", "kept inside the bank"];' in PAGE
+
+
+def test_refusal_shows_only_the_refusal_sentence_and_answers_need_a_positive_label():
+    body = PAGE[PAGE.index("async function askQuestion"):PAGE.index("async function toggleOffline")]
+    refused = body.index("if (result.data.refused)")
+    positive = body.index("ANSWER_LABELS.includes(label)")
+    unchecked = body.index("MSG.unchecked")
+    # Refusal is decided first, then a positive label, otherwise the answer is withheld.
+    assert refused < positive < unchecked
+    assert "The assistant will not answer this question." not in body
+
+
 def test_page_has_no_score_rating_verdict_or_recommendation():
     visible_text = re.sub(r"<script.*?</script>|<style.*?</style>|<[^>]+>", " ", PAGE, flags=re.DOTALL)
     assert not re.search(r"(?i)\b(score\w*|rating\w*|recommend\w*|verdict\w*|risk\w*|eligib\w*)\b", visible_text)

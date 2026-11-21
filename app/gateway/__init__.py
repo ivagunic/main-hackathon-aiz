@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass, field
@@ -88,12 +89,18 @@ def _decision_snapshot(status_code: int, headers: httpx.Headers, body: object = 
 def _blocked_decision(status_code: int, headers: httpx.Headers, body: object) -> bool:
     if status_code in {400, 403, 422, 451}:
         return True
+    if _header_value(headers, "x-brane-routed-to").casefold() == "refused":
+        return True
     fields = _decision_fields(body)
     candidates = [value for name, value in fields.items()
         if any(term in name.casefold() for term in ("verdict", "decision", "status", "action", "blocked", "deny"))]
     candidates.extend(value for name, value in _decision_headers(headers).items()
         if any(term in name.casefold() for term in ("verdict", "decision", "status", "action")))
     return any(isinstance(value, str) and value.casefold() in {"block", "blocked", "deny", "denied", "refuse", "refused"} for value in candidates)
+
+
+def _header_value(headers: httpx.Headers, name: str) -> str:
+    return next((value for key, value in headers.items() if key.casefold() == name), "")
 
 
 def _require_four_integer_fields(user: str) -> None:
@@ -121,10 +128,39 @@ def _require_positive_verdict(body: object, headers: httpx.Headers, status_code:
 
 class CloudLLM(Protocol):
     def complete(self, system: str, user: str, *, case_id: str, purpose: str) -> CloudResult: ...
+    def complete_question(self, system: str, user: str, *, case_id: str, purpose: str = "officer_question") -> CloudResult: ...
 
 
 class LocalLLM(Protocol):
     def complete(self, system: str, user: str) -> str: ...
+
+
+def _fake_question_refusal(question: str) -> str:
+    """Apply the semantic keywords from the pulled policy to fake-mode questions."""
+    path = Path(__file__).resolve().parents[2] / "policy" / "brane_policy.json"
+    try:
+        policy = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    normalized = " ".join(question.casefold().split())
+    for category in policy.get("semanticCategories", []):
+        if not category.get("enabled") or category.get("action") not in {"refuse", "local"}:
+            continue
+        code = str(category.get("code", ""))
+        if any(str(term).casefold() in normalized for term in category.get("keywords", [])):
+            return code
+        if code == "AUTONOMOUS_CREDIT_DECISION" and (
+            "reasonable to say yes" in normalized or "reasonable to say no" in normalized
+            or re.search(r"\bwould it be reasonable to say (?:yes|no)\b", normalized)
+        ):
+            return code
+        if code == "PROXY_ATTRIBUTE" and re.search(
+            r"\b(?:neighbou?rhood|postcode|postal code|age|education|nationality|gender)\b.{0,48}\b(?:matter|affect|factor|influence|use|consider)\b"
+            r"|\b(?:matter|affect|factor|influence|use|consider)\b.{0,48}\b(?:neighbou?rhood|postcode|postal code|age|education|nationality|gender)\b",
+            normalized,
+        ):
+            return code
+    return ""
 
 
 class FakeBrane:
@@ -149,6 +185,42 @@ class FakeBrane:
             "The note records [NET_PAY] alongside [HOUSING] and [UTILITIES]. "
             "It also records [DEBT_PAYMENTS] for the officer's review."
         )
+        return CloudResult(text, decision, digest, 200, headers)
+
+    def complete_question(self, system: str, user: str, *, case_id: str, purpose: str = "officer_question") -> CloudResult:
+        payload = {"system": system, "user": user, "case_id": case_id, "purpose": purpose}
+        self.payloads.append(payload)
+        digest = hashlib.sha256((system + user).encode()).hexdigest()
+        category = _fake_question_refusal(user)
+        if category:
+            headers = {"x-brane-routed-to": "refused", "x-brane-action": "refuse",
+                "x-brane-refused-by": f"semantic:{category}->refuse", "x-brane-semantic-matches": category,
+                "x-brane-pii-detected": "false", "x-brane-redacted": "false"}
+            decision = json.dumps({"status_code": 422, "headers": headers, "brane_verdict": "blocked"}, sort_keys=True)
+            raise BraneBlocked("FakeBrane refused the question", 422, decision, headers)
+        values = {name: int(value) for name, value in re.findall(
+            r"(net_pay_cents|housing_cents|utilities_cents|debt_payment_cents)\s*=\s*(\d+)", system)}
+        question = user.casefold()
+        selected = "net_pay_cents"
+        if any(term in question for term in ("housing", "rent", "huur")):
+            selected = "housing_cents"
+        elif any(term in question for term in ("utilities", "energy", "energie")):
+            selected = "utilities_cents"
+        elif any(term in question for term in ("debt", "loan repayment", "schuld", "aflossing")):
+            selected = "debt_payment_cents"
+        elif not any(term in question for term in ("net", "income", "salary", "earn", "verdien", "salaris", "loon")):
+            selected = ""
+        if selected:
+            amount = values.get(selected, 0)
+            label = selected.removesuffix("_cents").replace("_", " ")
+            text = f"The recorded {label} figure is {amount} cents."
+        else:
+            text = "The four displayed figures are " + ", ".join(
+                f"{values.get(name, 0)} cents" for name in
+                ("net_pay_cents", "housing_cents", "utilities_cents", "debt_payment_cents")) + "."
+        headers = {"x-brane-routed-to": "cloud", "x-brane-action": "allow", "x-brane-redacted": "false",
+            "x-brane-pii-detected": "false", "x-brane-lane": "governed", "x-brane-model-resolved": "fake"}
+        decision = json.dumps({"status_code": 200, "headers": headers, "brane_verdict": "allow"}, sort_keys=True)
         return CloudResult(text, decision, digest, 200, headers)
 
 
@@ -234,6 +306,46 @@ class BraneClient:
             raise
         except (httpx.HTTPError, ValueError, KeyError, IndexError) as exc:
             raise BraneUnavailable("BRANE request failed") from exc
+        with closing(sqlite3.connect(self._cache_path)) as db, db:
+            db.execute("INSERT OR REPLACE INTO cache VALUES (?, ?, ?)", (digest, text, verdict))
+        return CloudResult(text, verdict, digest, response.status_code, brane_headers)
+
+    def complete_question(self, system: str, user: str, *, case_id: str, purpose: str = "officer_question") -> CloudResult:
+        """Send one PRESCRUBbed officer question through BRANE's normal chat route."""
+        if not self.base_url or not self.model or not self.api_key:
+            raise BraneUnavailable("BRANE endpoint, API key, and model are required")
+        digest = hashlib.sha256((self.base_url + "\0question\0" + system + "\0" + user + "\0" + self.model).encode()).hexdigest()
+        Path(self._cache_path).parent.mkdir(parents=True, exist_ok=True)
+        with closing(sqlite3.connect(self._cache_path)) as db, db:
+            db.execute("CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, text TEXT NOT NULL, verdict TEXT NOT NULL)")
+            cached = db.execute("SELECT text, verdict FROM cache WHERE key=?", (digest,)).fetchone()
+        if cached:
+            snapshot = json.loads(cached[1])
+            return CloudResult(cached[0], cached[1], digest, snapshot.get("status_code"), snapshot.get("headers", {}))
+        url, headers, body = build_brane_request(base_url=self.base_url, path=CHAT_COMPLETIONS_PATH, model=self.model,
+            api_key=self.api_key, system=system, user=user)
+        try:
+            with httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0)) as client:
+                response = client.post(url, headers=headers, json=body)
+            if response.status_code >= 500:
+                raise BraneUnavailable(f"BRANE returned HTTP {response.status_code}")
+            try:
+                response_body = response.json()
+            except ValueError:
+                response_body = response.text
+            if _blocked_decision(response.status_code, response.headers, response_body):
+                decision, brane_headers = _decision_snapshot(response.status_code, response.headers, response_body)
+                raise BraneBlocked("BRANE blocked the question", response.status_code, decision, brane_headers)
+            response.raise_for_status()
+            _require_positive_verdict(response_body, response.headers, response.status_code)
+            if not isinstance(response_body, dict):
+                raise TypeError("BRANE returned a non-object question response")
+            text = response_body["choices"][0]["message"]["content"]
+            verdict, brane_headers = _decision_snapshot(response.status_code, response.headers, response_body)
+        except (BraneUnavailable, BraneBlocked):
+            raise
+        except (httpx.HTTPError, ValueError, KeyError, IndexError) as exc:
+            raise BraneUnavailable("BRANE question request failed") from exc
         with closing(sqlite3.connect(self._cache_path)) as db, db:
             db.execute("INSERT OR REPLACE INTO cache VALUES (?, ?, ?)", (digest, text, verdict))
         return CloudResult(text, verdict, digest, response.status_code, brane_headers)
@@ -381,6 +493,8 @@ def get_cloud() -> CloudLLM:
     if os.getenv("BRANE_DEMO_DOWN", "off").casefold() == "on":
         class ForcedUnavailable:
             def complete(self, system: str, user: str, *, case_id: str, purpose: str) -> CloudResult:
+                raise BraneUnavailable("BRANE was set to down for the demo")
+            def complete_question(self, system: str, user: str, *, case_id: str, purpose: str = "officer_question") -> CloudResult:
                 raise BraneUnavailable("BRANE was set to down for the demo")
         return ForcedUnavailable()
     return FakeBrane() if os.getenv("BRANE_MODE", "fake") == "fake" else BraneClient()

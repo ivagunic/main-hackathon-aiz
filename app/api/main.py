@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
 import tempfile
 import unicodedata
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -18,8 +18,8 @@ from sse_starlette.sse import EventSourceResponse
 
 from app import pipeline
 from app.intake import parse_file_data
-from app.models import Element, OfficerView
-from app.policy import load_policy, record
+from app.models import Decision, OfficerView
+from app.policy import load_policy
 from app.qa import ask as ask_question
 
 app = FastAPI(title="AI-Z Loan File Assistant")
@@ -158,8 +158,16 @@ def ask(case_id: str, body: Question):
     answer = ask_question(case_id, body.session_id, body.question, pipeline.VIEWS[case_id])
     if answer.refused:
         pipeline.EVENTS.setdefault(case_id, []).append({"type": "flag_raised", "flag": "question_refused", "rule_id": answer.rule_id})
-        control = Element(id=hashlib.sha1(f"{case_id}:{body.session_id}:{body.question}".encode()).hexdigest()[:12], source_ref="qa:refusal", kind="control", text="", category="instruction_attack", detector="qa_rules", lane="refuse", rule_id=answer.rule_id or "R-QA-REFUSE", citation=answer.citation or "", brane_policy_ref="LOCAL-QA-REFUSE")
-        record(case_id, control, pipeline.ACTIVE_POLICY_VERSION, pipeline.LEDGER)
+    lane = {"allow": "cloud_aggregate", "protect": "cloud_pseudonymised", "local only": "local_only", "block": "refuse"}[answer.aiz_decision]
+    pipeline.LEDGER.append(Decision(
+        seq=0, case_id=case_id, element_id=uuid.uuid4().hex[:12], category="model_output" if not answer.refused else "instruction_attack",
+        lane=lane, rule_id=answer.rule_id or "Q-BRANE-ANSWER", citation=answer.citation or "",
+        policy_version=pipeline.ACTIVE_POLICY_VERSION, brane_verdict=answer.brane_verdict,
+        payload_sha256=answer.payload_sha256, ts=datetime.now(UTC), aiz_decision=answer.aiz_decision,
+        brane_policy_ref="agent-only",
+    ))
+    pipeline.EVENTS.setdefault(case_id, []).append({"type": "question_checked", "decision": answer.aiz_decision,
+        "rule_id": answer.rule_id, "checked_by": answer.checked_by})
     return answer.__dict__
 
 
