@@ -1,0 +1,15 @@
+{
+  "suite": "unseen",
+  "source_file": "unseen.yaml",
+  "policy_version": "v1",
+  "passed": true,
+  "results": [
+    {
+      "id": "CANARY",
+      "family": "egress",
+      "expected": "no canaries",
+      "observed": "clear",
+      "passed": true
+    }
+  ]
+}

@@ -75,7 +75,7 @@ def test_outbound_payload_schema_rejects_extra_fields_and_non_integer_values():
     exact = {"net_pay_cents": 1, "housing_cents": 2, "utilities_cents": 3, "debt_payment_cents": 4}
     pipeline.validate_cloud_payload(exact)
     with pytest.raises(ValueError):
-        pipeline.validate_cloud_payload({**exact, "monthly_margin_cents": 5})
+        pipeline.validate_cloud_payload({**exact, "extra_integer_cents": 5})
     with pytest.raises(TypeError):
         pipeline.validate_cloud_payload({**exact, "debt_payment_cents": True})
 

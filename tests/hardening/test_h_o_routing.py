@@ -14,7 +14,7 @@ from test_h_h_fail_closed import _live_client, _ok_body
 
 from app import pipeline
 
-NOTE = "A short factual note."
+NOTE = "The note records [NET_PAY] and [HOUSING]. It also records [UTILITIES] and [DEBT_PAYMENTS]."
 
 
 def _p12_row(run) -> dict:
@@ -28,7 +28,9 @@ def test_positive_answer_shows_the_note(monkeypatch, tmp_path, run_case, routed,
     headers = {"x-brane-routed-to": routed, "x-brane-action": action}
     _live_client(monkeypatch, tmp_path, lambda r: httpx.Response(200, json=_ok_body(text=NOTE), headers=headers))
     run = run_case("clean")
-    assert run.view["explanation"].startswith(NOTE)
+    assert run.view["explanation"].startswith(
+        "The note records € 2.450,00 and € 850,00. It also records € 120,00 and € 0,00."
+    )
     stored = json.loads(next(r for r in run.rows if r["rule_id"] == "P1" and r["brane_verdict"])["brane_verdict"])
     assert stored["headers"]["x-brane-routed-to"] == routed  # the page reads where the request went from here
     assert "raw_response" not in stored and NOTE not in json.dumps(run.rows) and NOTE not in run.sse
@@ -122,8 +124,8 @@ def test_unreadable_records_are_not_positive_in_live_mode(monkeypatch, verdict):
     assert pipeline._positive_brane_verdict(verdict) is expected
 
 
-def test_plain_allow_is_only_accepted_from_the_fake_double(monkeypatch):
+def test_plain_allow_is_never_accepted_without_a_decision_record(monkeypatch):
     monkeypatch.setenv("BRANE_MODE", "fake")
-    assert pipeline._positive_brane_verdict("allow")
+    assert not pipeline._positive_brane_verdict("allow")
     monkeypatch.setenv("BRANE_MODE", "live")
     assert not pipeline._positive_brane_verdict("allow")

@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -31,6 +32,13 @@ EVENTS: dict[str, list[dict]] = {}
 VIEWS: dict[str, OfficerView] = {}
 ACTIVE_POLICY_VERSION = "v1"
 OUTBOUND_FIELDS = ("net_pay_cents", "housing_cents", "utilities_cents", "debt_payment_cents")
+FIGURE_TOKENS = {
+    "[NET_PAY]": "net_pay_cents",
+    "[HOUSING]": "housing_cents",
+    "[UTILITIES]": "utilities_cents",
+    "[DEBT_PAYMENTS]": "debt_payment_cents",
+}
+_TOKEN_PATTERN = re.compile(r"\[[A-Z][A-Z_]*\]")
 PROHIBITED_DRAFT = re.compile(
     r"\b(approv\w*|reject\w*|score\w*|risk\w*|recommend\w*|"
     r"aanbevel\w*|aanbevol\w*|aanraad\w*|aanrad\w*|advis\w*|adviseer\w*|advies|goedkeur\w*|goedgekeur\w*|afkeur\w*|afgekeur\w*|"
@@ -69,6 +77,36 @@ def _figures(affordability: Affordability) -> dict[str, int]:
     return {field: getattr(affordability, field) for field in OUTBOUND_FIELDS}
 
 
+def drafting_prompt() -> str:
+    """BRANE-tested wording; model sees tokens, never formatted or source figures."""
+    return (
+        "Draft a neutral two-sentence note for a credit officer from these figures: "
+        "[NET_PAY], [HOUSING], [UTILITIES], [DEBT_PAYMENTS]. Do not add any assessment. "
+        "Refer to each figure only by its token. Include no digits or currency symbols."
+    )
+
+
+def _format_euros(cents: int) -> str:
+    whole, fraction = divmod(cents, 100)
+    return f"€ {whole:,}".replace(",", ".") + f",{fraction:02d}"
+
+
+def _render_token_draft(text: str, affordability: Affordability) -> str | None:
+    """Validate an untouched model draft, then fill only the four approved tokens locally."""
+    if any(char.isdigit() or unicodedata.category(char) == "Sc" for char in text):
+        return None
+    tokens = _TOKEN_PATTERN.findall(text)
+    if set(tokens) != set(FIGURE_TOKENS) or len(tokens) != len(FIGURE_TOKENS):
+        return None
+    if _prohibited(text) or re.search(r"\[[^\]]*\]", _TOKEN_PATTERN.sub("", text)):
+        return None
+    values = _figures(affordability)
+    rendered = text
+    for token, field in FIGURE_TOKENS.items():
+        rendered = rendered.replace(token, _format_euros(values[field]))
+    return rendered
+
+
 _ROUTED_OK = {"cloud", "local"}
 _ACTION_OK = {"allow", "placeholder", "local"}
 
@@ -98,10 +136,6 @@ def _header(headers: dict, name: str) -> str:
 
 def _brane_decision(verdict: str | None) -> BraneDecision:
     """Read the gateway's decision record. Anything missing or unreadable yields a non-positive decision."""
-    if os.getenv("BRANE_MODE", "fake") == "fake" and verdict == "allow":
-        # FakeBrane test double (no network, no headers). Its stored verdict stays the plain "allow",
-        # so the record never claims a real routing; live mode never takes this branch.
-        return BraneDecision(200, "cloud", "allow")
     try:
         record = json.loads(verdict or "")
     except (TypeError, ValueError):
@@ -132,11 +166,11 @@ def _ledger_verdict(verdict: str) -> str:
     return verdict
 
 
-def _checked_draft(text: str, affordability: Affordability) -> str:
+def _checked_draft(text: str, affordability: Affordability, *, locally_rendered: bool = False) -> str:
     values = _figures(affordability)
     allowed_numbers = {str(value) for value in values.values()}
     numbers = re.findall(r"(?<!\w)\d+(?:[,.]\d+)?", text)
-    if _prohibited(text) or any(value not in allowed_numbers for value in numbers):
+    if _prohibited(text) or (not locally_rendered and any(value not in allowed_numbers for value in numbers)):
         text = "Template note: review the source documents and reconcile the listed figures."
     verified = "; ".join(f"{name}={value}" for name, value in values.items())
     return f"{text.strip()}\nVerified local figures: {verified}."
@@ -222,12 +256,7 @@ def process(case_id: str, path: str | Path | None = None) -> OfficerView:
         # Defense in depth: payload schema and source-derived leak checks run before gateway.
         validate_cloud_payload(json.loads(user))
         outbound_guard(user, loan)
-        system = (
-            "Draft a neutral two-sentence note for a credit officer from these figures: "
-            f"net pay {user_data['net_pay_cents']} cents, housing {user_data['housing_cents']} cents, "
-            f"utilities {user_data['utilities_cents']} cents, debt payments {user_data['debt_payment_cents']} cents. "
-            "Do not add any assessment."
-        )
+        system = drafting_prompt()
         result = get_cloud().complete(system, user, case_id=case_id, purpose="aggregate_explanation")
         decision = _brane_decision(result.verdict)
         if decision.refused:
@@ -239,7 +268,10 @@ def process(case_id: str, path: str | Path | None = None) -> OfficerView:
             assert_clean(draft, loan)
         except LeakDetected:
             draft = "Template note: review the source documents and reconcile the listed figures."
-        explanation = _checked_draft(draft, affordability)
+        rendered = _render_token_draft(draft, affordability)
+        if rendered is None:
+            rendered = "Template note: review the source documents and reconcile the listed figures."
+        explanation = _checked_draft(rendered, affordability, locally_rendered=True)
         stored_verdict = _ledger_verdict(result.verdict)
         EVENTS[case_id].append({"type": "brane_call", "verdict": stored_verdict, "payload_sha256": result.payload_sha256, "ts": datetime.now(UTC).isoformat()})
         record(case_id, aggregate, policy["version"], LEDGER, verdict=stored_verdict, payload_hash=result.payload_sha256)

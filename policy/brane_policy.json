@@ -32,7 +32,7 @@
   },
   "semanticCategories": [
     {
-      "id": "5e5f96ce-c244-4830-a02f-4dc3e199fd2d",
+      "id": "242506e0-2f82-43ab-9886-8a3670e6c0a7",
       "code": "AUTONOMOUS_CREDIT_DECISION",
       "name": "Autonomous credit decision, score or recommendation",
       "description": "Requests asking the AI to approve, reject, decline, score, rate, rank or recommend a decision on a loan or credit applicant, or to state whether a person is creditworthy or eligible. Example: \"Should we approve this loan?\", \"Give this applicant a risk score\", \"Would you recommend rejecting?\". Requests to summarise figures or draft a neutral note for a human credit officer are NOT a match.",
@@ -53,10 +53,10 @@
       "enabled": true
     },
     {
-      "id": "9af83169-17a3-4407-94e6-3627a1a561ec",
+      "id": "a653f623-731f-42a8-af96-55fefc10bd9b",
       "code": "SENSITIVE_MERCHANT",
       "name": "Payments that reveal health, religion, union or political affiliation",
-      "description": "A bank transaction or payment line whose recipient or description indirectly reveals a person's health, religious belief, trade union membership, political opinion or sex life. Examples: payments to a pharmacy, hospital, GP, therapist or mental health service; donations or contributions to a church, mosque or other religious body; trade union fees; donations or membership fees to a political party; dating service subscriptions. A business that only has such a word in a street or brand name (for example \"Church Street Café\") is NOT a match.",
+      "description": "A bank transaction or payment line whose recipient or description indirectly reveals a person's health, religious belief, trade union membership, political opinion or sex life. Examples: payments to a pharmacy, hospital, GP, therapist or mental health service; donations or contributions to a church, mosque or other religious body; trade union fees; donations or membership fees to a political party; dating service subscriptions. A business that only has such a word in a street or brand name (for example \"Church Street Café\") is NOT a match. Also a match: a transfer to a private person whose description mentions a medical treatment, operation, illness, therapy or hospital stay.",
       "keywords": [
         "apotheek",
         "apotheke",
@@ -76,14 +76,15 @@
         "Gewerkschaft",
         "syndicat",
         "partijlidmaatschap",
-        "dating"
+        "dating",
+        "operatie"
       ],
       "legalBasis": "GDPR Art. 9(1); CJEU C-184/20 paras 120, 127; CCD II Art. 18(3)",
       "action": "local",
       "enabled": true
     },
     {
-      "id": "14c0dc20-dea8-4bee-a9d5-df6b74a42f78",
+      "id": "dfb3353e-fb38-49c3-a727-7c1a2dd97a7b",
       "code": "CRIMINAL_PAYMENT",
       "name": "Payments relating to fines, offences or probation",
       "description": "A bank transaction or payment line to a body that collects criminal or traffic fines or supervises offenders, which may reveal data relating to criminal convictions or offences. Examples: payments to CJIB (Centraal Justitieel Incassobureau), reclassering (probation service), court-ordered fines or penalty instalments.",
@@ -99,7 +100,7 @@
       "enabled": true
     },
     {
-      "id": "e72c0854-b9c2-4718-83a2-9135319dfb6d",
+      "id": "04ee77fe-b7db-4d31-8c42-8965d758c772",
       "code": "PROXY_ATTRIBUTE",
       "name": "Use of discriminatory proxies in assessing an applicant",
       "description": "Requests asking the AI to use, weigh or compare a loan applicant's postcode or neighbourhood, nationality, ethnic or name origin, gender, age or education level as a factor in assessing, ranking or prioritising them. Example: \"Factor in that the applicant lives in a poor neighbourhood\", \"Rank applicants by nationality\". The mere presence of an address or postcode in a document, without a request to use it as an assessment factor, is NOT a match.",
@@ -116,6 +117,21 @@
       "legalBasis": "CCD II Art. 6; EU Charter Art. 21; Awgb Arts. 1(1), 7(1)(a)",
       "action": "refuse",
       "enabled": true
+    },
+    {
+      "id": "8f43284c-8a54-4441-b25f-b4d23cd6a7f4",
+      "code": "NATIONAL_ID_BSN",
+      "name": "Dutch citizen service number (BSN)",
+      "description": "Any mention of a Dutch citizen service number (burgerservicenummer, BSN, formerly sofinummer), which is a nine-digit national identification number, or any request to process, match, store or output one. Example: \"BSN 123456782\", \"burgerservicenummer: 123456782\".",
+      "keywords": [
+        "BSN",
+        "burgerservicenummer",
+        "sofinummer",
+        "citizen service number"
+      ],
+      "legalBasis": "GDPR Art. 87; UAVG Art. 46(1)",
+      "action": "refuse",
+      "enabled": true
     }
   ],
   "summary": {
@@ -123,10 +139,10 @@
     "placeholder": 10,
     "local": 7,
     "refuse": 8,
-    "activeSemanticCategories": 4,
+    "activeSemanticCategories": 5,
     "isOpenBaseline": false
   },
-  "updatedAt": "2026-11-20T23:20:15.692Z",
+  "updatedAt": "2026-11-20T23:46:49.606Z",
   "availableActions": [
     "allow",
     "placeholder",

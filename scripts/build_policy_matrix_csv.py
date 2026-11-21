@@ -79,7 +79,7 @@ def main() -> int:
     actions, was_pulled = _brane_actions()
     evidence = _evidence_rows()
     result = []
-    for rule_id in TARGET:
+    for rule_id, target in TARGET.items():
         cells = doc_rows[rule_id]
         rule = rules[rule_id]
         refs = [part.strip() for part in str(rule.get("brane_policy_ref", "agent-only")).split(",")]
@@ -104,7 +104,7 @@ def main() -> int:
             "Use-case data category": cells[1],
             "Why needed (or not needed) for task": cells[2],
             "Legal or governance source (Article / Guideline)": cells[4],
-            "Target decision: ALLOW / PROTECT / LOCAL ONLY / BLOCK / HUMAN APPROVAL": TARGET[rule_id],
+            "Target decision: ALLOW / PROTECT / LOCAL ONLY / BLOCK / HUMAN APPROVAL": target,
             "How enforced in BRANE AIF + Agent code today": enforcement,
             "Product gap note (what finer rule you wished BRANE had per-category)": "",
             "Evidence captured (X-Brane-* headers / UI step)": " | ".join(captured),

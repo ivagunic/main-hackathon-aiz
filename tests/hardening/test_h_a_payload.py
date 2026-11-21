@@ -17,12 +17,14 @@ def test_every_fixture_sends_exactly_four_integer_fields(run_case, case_id):
         assert all(type(payload[f]) is int for f in FIELDS)
         assert payload == run.figures
     # The officer view and SSE stream never carry a richer payload either.
-    assert "monthly_margin" not in run.surfaces()["sse_events"]
+    assert {field: run.view["affordability"][field] for field in FIELDS} == run.figures
+    for extra in ("monthly_margin", "extra_integer_cents", "disposable_income", "total_expenditure"):
+        assert extra not in run.surfaces()["sse_events"], extra
 
 
 BAD_PAYLOADS = {
     "fifth_field": {**GOOD, "applicant_name": "Synthetic"},
-    "fifth_int_field": {**GOOD, "monthly_margin_cents": 1},
+    "fifth_int_field": {**GOOD, "extra_integer_cents": 1},
     "missing_field": {k: v for k, v in GOOD.items() if k != "debt_payment_cents"},
     "renamed_field": {**{k: v for k, v in GOOD.items() if k != "housing_cents"}, "Housing_cents": 1},
     "string_value": {**GOOD, "housing_cents": "85000"},

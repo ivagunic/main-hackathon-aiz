@@ -22,7 +22,7 @@ rules:
     action: calculate
     lane: excluded
     citation: "GDPR Art. 87; UAVG Art. 46(1)"
-    brane_policy_ref: SSN,TAX_NUMBER
+    brane_policy_ref: NATIONAL_ID_BSN
   - id: P4
     match: {category: special_category}
     action: calculate

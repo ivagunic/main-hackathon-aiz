@@ -1,3 +1,4 @@
+import csv
 import json
 from pathlib import Path
 
@@ -21,6 +22,11 @@ def main() -> None:
     repeatability = Path("evidence/repeatability.json")
     data = json.loads(repeatability.read_text(encoding="utf-8")) if repeatability.exists() else {"runs": []}
     hashes = data.get("runs", [{}])[0] if data.get("runs") else {}
+    evidence_path = Path("evidence/test_evidence_run.csv")
+    evidence = {}
+    if evidence_path.exists():
+        with evidence_path.open(newline="", encoding="utf-8-sig") as stream:
+            evidence = {row.get("Test ID", ""): row for row in csv.DictReader(stream)}
     lines = [
         "# Test protocol", "",
         "The matrix below distinguishes implementation expectations from observed evidence. The BRANE enforcement check is live-only and must be run after P1 is configured; this workspace has not sent that request.", "",
@@ -37,13 +43,23 @@ def main() -> None:
             ledger = "; ".join(f"{key}: `{hashes[key]}`" for key in ("variant_a", "variant_b") if key in hashes)
         if not ledger:
             ledger = "pending evidence"
-        if name in {"BRANE smoke", "BRANE enforcement check"}:
+        if name == "BRANE enforcement check" and evidence.get("P3-BSN"):
+            row = evidence["P3-BSN"]
+            result = f"{row.get('Pass/Fail', 'not recorded')}: route={row.get('X-Brane-Routed-To', '')}; {row.get('X-Brane-Pii-Types / Local-Cause', '')}"
+        elif name in {"BRANE smoke", "BRANE enforcement check"}:
             result = "live evidence pending"
+        elif evidence.get(name):
+            row = evidence[name]
+            result = f"{row.get('Pass/Fail', 'not recorded')}: route={row.get('X-Brane-Routed-To', '')}; {row.get('X-Brane-Pii-Types / Local-Cause', '')}"
         elif name in {"T1", "T2", "T3"}:
             result = "local legacy-fixture pass; A01–A03 profile fixtures and live BRANE evidence pending"
         else:
             result = "local regression passed; live BRANE evidence pending"
         lines.append(f"| {name} | {input_name} | {expected} | {decision} | {rule} | {ledger} | {result} |")
+    for test_id in ("E1", "E2", "E3", "E4", "E5 (before fix)", "E5 (after fix)", "P3-BSN", "T3-brane-only"):
+        row = evidence.get(test_id)
+        if row:
+            lines.append(f"| {test_id} | synthetic edge/evidence input | {row.get('Expected result', '')} | observed route={row.get('X-Brane-Routed-To', '')} | {row.get('Scenario type', '')} | headers: {row.get('X-Brane-Pii-Types / Local-Cause', '')} | {row.get('Pass/Fail', '')} |")
     Path("docs/test-protocol.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

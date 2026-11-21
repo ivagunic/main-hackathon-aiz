@@ -43,7 +43,7 @@ def _live_client(monkeypatch, tmp_path, handler):
     return requests
 
 
-def _ok_body(verdict="allow", text="A short factual note."):
+def _ok_body(verdict="allow", text="The note records [NET_PAY] and [HOUSING]. It also records [UTILITIES] and [DEBT_PAYMENTS]."):
     body = {"choices": [{"message": {"content": text}}]}
     if verdict is not None:
         body["brane_verdict"] = verdict
@@ -93,7 +93,9 @@ def test_live_client_harness_positive_control(monkeypatch, tmp_path, run_case):
     requests = _live_client(monkeypatch, tmp_path, lambda r: httpx.Response(200, json=_ok_body(), headers=ROUTED_CLOUD))
     run = run_case("clean")
     assert len(requests) == 1
-    assert run.view["explanation"].startswith("A short factual note.")
+    assert run.view["explanation"].startswith(
+        "The note records € 2.450,00 and € 850,00. It also records € 120,00 and € 0,00."
+    )
 
 
 def test_live_verdict_record_does_not_copy_model_text_into_ledger_or_events(monkeypatch, tmp_path, run_case):

@@ -33,14 +33,31 @@ def test_bad_draft_is_blocked_and_replaced(monkeypatch, run_case, draft):
 
 
 def test_clean_draft_passes_through(monkeypatch, run_case):
-    fake = RecordingBrane(text="The note covers net pay, housing, utilities and debt payments of 245000, 85000, 12000 and 0 cents.")
+    fake = RecordingBrane(text="The note records [NET_PAY] alongside [HOUSING] and [UTILITIES]. It also records [DEBT_PAYMENTS] for review.")
     monkeypatch.setattr(pipeline, "get_cloud", lambda: fake)
     run = run_case("clean")
     assert not run.view["explanation"].startswith("Template note:")
+    assert "€ 2.450,00" in run.view["explanation"]
+    assert "€ 850,00" in run.view["explanation"]
+    assert "€ 120,00" in run.view["explanation"]
+    assert "€ 0,00" in run.view["explanation"]
+
+
+@pytest.mark.parametrize("draft", [
+    "The note records [NET_PAY] and [HOUSING]. It also records [UTILITIES] and [DEBT_PAYMENTS] for 2.",
+    "The note records [NET_PAY] and [HOUSING]. It also records [UTILITIES] and [DEBT_PAYMENTS] for $.",
+    "The note records [NET_PAY] and [HOUSING]. It also records [UTILITIES] and [UNKNOWN] for review.",
+    "The note records [NET_PAY] and [HOUSING]. It also records [UTILITIES] for review.",
+    "The note records [NET_PAY] and [HOUSING]. It also records [UTILITIES] and [DEBT_PAYMENTS] to recommend.",
+])
+def test_invalid_token_draft_is_replaced(monkeypatch, run_case, draft):
+    monkeypatch.setattr(pipeline, "get_cloud", lambda: RecordingBrane(text=draft))
+    run = run_case("clean")
+    assert run.view["explanation"].startswith("Template note:")
 
 
 def test_draft_carrying_restored_identifier_is_blocked(monkeypatch, run_case):
-    fake = RecordingBrane(text="Prepared for <PERSON_1> at <ADDRESS_1>.")
+    fake = RecordingBrane(text="The note records [NET_PAY] and <PERSON_1>. It also records [HOUSING], [UTILITIES] and [DEBT_PAYMENTS].")
     monkeypatch.setattr(pipeline, "get_cloud", lambda: fake)
     run = run_case("clean")
     assert run.view["explanation"].startswith("Template note:")

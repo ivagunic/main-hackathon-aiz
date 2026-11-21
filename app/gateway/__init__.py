@@ -128,14 +128,28 @@ class LocalLLM(Protocol):
 
 
 class FakeBrane:
-    def __init__(self) -> None:
+    def __init__(self, *, refuse: bool = False) -> None:
         self.payloads: list[dict[str, str]] = []
+        self.refuse = refuse
 
     def complete(self, system: str, user: str, *, case_id: str, purpose: str) -> CloudResult:
+        _require_four_integer_fields(user)
         payload = {"system": system, "user": user, "case_id": case_id, "purpose": purpose}
         self.payloads.append(payload)
         digest = hashlib.sha256((system + user).encode()).hexdigest()
-        return CloudResult("The assessment uses the supplied income and expense aggregates.", "allow", digest)
+        if self.refuse:
+            headers = {"x-brane-routed-to": "refused", "x-brane-action": "refuse",
+                "x-brane-refused-by": "synthetic fake policy refusal", "x-brane-lane": "governed"}
+            decision = json.dumps({"status_code": 422, "headers": headers, "brane_verdict": "blocked"}, sort_keys=True)
+            raise BraneBlocked("FakeBrane refused the request", 422, decision, headers)
+        headers = {"x-brane-routed-to": "cloud", "x-brane-action": "allow", "x-brane-redacted": "false",
+            "x-brane-pii-detected": "false", "x-brane-lane": "governed", "x-brane-model-resolved": "fake"}
+        decision = json.dumps({"status_code": 200, "headers": headers, "brane_verdict": "allow"}, sort_keys=True)
+        text = (
+            "The note records [NET_PAY] alongside [HOUSING] and [UTILITIES]. "
+            "It also records [DEBT_PAYMENTS] for the officer's review."
+        )
+        return CloudResult(text, decision, digest, 200, headers)
 
 
 class FakeLocal:
@@ -211,7 +225,7 @@ class BraneClient:
             response.raise_for_status()
             _require_positive_verdict(response_body, response.headers, response.status_code)
             if not isinstance(response_body, dict):
-                raise ValueError("BRANE returned a non-object response")
+                raise TypeError("BRANE returned a non-object response")
             text = response_body["choices"][0]["message"]["content"]
             verdict, brane_headers = _decision_snapshot(response.status_code, response.headers, response_body)
         except BraneUnavailable:
@@ -230,8 +244,8 @@ class BraneClient:
         This bypasses the application's four-figure prompt validator only for
         the opt-in evidence runner; normal `complete` remains exact-schema only.
         """
-        if not test_id or not test_id.startswith(("T", "E")):
-            raise ValueError("synthetic policy evidence requires a T/E test ID")
+        if not test_id or not test_id.startswith(("T", "E", "P3")):
+            raise ValueError("synthetic policy evidence requires a T/E/P3 test ID")
         if os.getenv("BRANE_MODE", "fake").casefold() != "live":
             raise BraneUnavailable("synthetic BRANE evidence requires BRANE_MODE=live")
         if not self.api_key or not self.model:
@@ -350,7 +364,7 @@ class LocalClient:
                     decision, decision_headers)
             response.raise_for_status()
             if not isinstance(response_body, dict):
-                raise ValueError("BRANE returned a non-object local response")
+                raise TypeError("BRANE returned a non-object local response")
             return str(response_body["choices"][0]["message"]["content"])
         except BraneBlocked:
             raise

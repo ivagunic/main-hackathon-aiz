@@ -27,6 +27,10 @@ dating_apps:
   exact: [Dating App Voorbeeld]
   stems: [dating app, dating subscription, tinder, grindr, bumble, happn]
   allowlist: []
+health:
+  exact: []
+  stems: [operatie, behandeling, ziekenhuisopname, therapie, medicijnen, chemo, Operation, Behandlung, opération, traitement]
+  allowlist: [Therapieweg 12]
 criminal:
   exact: [CJIB Voorbeeld, Reclassering Voorbeeld]
   stems: [cjib, reclassering]

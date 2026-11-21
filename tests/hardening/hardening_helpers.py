@@ -42,7 +42,10 @@ class RecordingBrane(FakeBrane):
         result = super().complete(system, user, case_id=case_id, purpose=purpose)
         if self.text is not None:
             result.text = self.text
-        result.verdict = self.verdict
+        if self.verdict != "allow":
+            record = json.loads(result.verdict)
+            record["brane_verdict"] = self.verdict
+            result.verdict = json.dumps(record, sort_keys=True)
         return result
 
     def user_payloads(self) -> list[dict]:

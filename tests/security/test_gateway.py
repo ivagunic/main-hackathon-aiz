@@ -2,8 +2,10 @@ import httpx
 import pytest
 
 from app.gateway import (
+    BraneBlocked,
     BraneClient,
     BraneUnavailable,
+    FakeBrane,
     LocalClient,
     build_brane_request,
     outbound_guard,
@@ -45,14 +47,36 @@ def test_outbound_guard_rejects_identifier_payload():
 def test_local_client_has_no_unapproved_ollama_fallback(monkeypatch):
     monkeypatch.delenv("BRANE_BASE_URL", raising=False)
     monkeypatch.delenv("BRANE_MODEL", raising=False)
+    monkeypatch.delenv("BRANE_API_KEY", raising=False)
     with pytest.raises(BraneUnavailable):
         LocalClient().complete("system", "message")
 
 
 def test_brane_request_construction_is_centralized():
-    url, headers, body = build_brane_request(base_url="https://brane.invalid/", path="/v1/chat/completions",
+    url, headers, body = build_brane_request(base_url="https://brane.invalid/", path="/chat/completions",
         model="synthetic-model", api_key="test-token", system="system", user="four fields")
-    assert url == "https://brane.invalid/v1/chat/completions"
+    assert url == "https://brane.invalid/chat/completions"
     assert headers == {"Authorization": "Bearer test-token", "User-Agent": "BRANE-Starter-Kit/1.0 (MAIN-Summit-2026)"}
     assert body == {"model": "synthetic-model", "temperature": 0, "seed": 0,
         "messages": [{"role": "system", "content": "system"}, {"role": "user", "content": "four fields"}]}
+
+
+def test_fake_brane_returns_live_shaped_positive_decision():
+    fake = FakeBrane()
+    result = fake.complete("system", '{"net_pay_cents":1,"housing_cents":2,"utilities_cents":3,"debt_payment_cents":4}',
+        case_id="synthetic", purpose="test")
+    assert result.http_status == 200
+    assert result.response_headers["x-brane-routed-to"] == "cloud"
+    assert result.response_headers["x-brane-action"] == "allow"
+    assert '"status_code": 200' in result.verdict
+    assert "[NET_PAY]" in result.text
+
+
+def test_fake_brane_refusal_returns_http_422_shape():
+    fake = FakeBrane(refuse=True)
+    with pytest.raises(BraneBlocked) as caught:
+        fake.complete("system", '{"net_pay_cents":1,"housing_cents":2,"utilities_cents":3,"debt_payment_cents":4}',
+            case_id="synthetic", purpose="test")
+    assert caught.value.status_code == 422
+    assert caught.value.response_headers["x-brane-routed-to"] == "refused"
+    assert caught.value.response_headers["x-brane-action"] == "refuse"
